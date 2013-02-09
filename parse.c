@@ -520,7 +520,7 @@ int parse_instrcution_operand(operand_t *operand, int available_address_modes)
 
 	}
 
-	if (!(operand->type & available_address_modes)) {
+	if (!(FLAG(operand->type) & available_address_modes)) {
 		parse_error("address mode noy allowed for this instruction");
 		return 1;
 	}
@@ -594,7 +594,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&first_op, instruction->src_address_modes)) {
+			if (parse_instrcution_operand(&second_op, instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
