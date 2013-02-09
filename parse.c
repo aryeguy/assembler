@@ -18,11 +18,15 @@ char *input_line = NULL;
 char *input_line_start = NULL;
 char data_section[DATA_SECTION_MAX_LENGTH];
 char code_section[CODE_SECTION_MAX_LENGTH];
+full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
+int full_instruction_index = 0;
+
 label_name_t label_definition;
 label_name_t label_declaration;
 unsigned int data_index = 0;
 unsigned int code_index = 0;
 int label_defined = 0;
+pass_t pass;
 instruction_t instructions[] = {
 	{"mov", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
@@ -236,6 +240,9 @@ int install_label_defintion(label_section_t section)
 	label_t *l;
 
 	l = lookup_label(label_definition);
+	if (pass == SECOND_PASS) {
+		return 0;
+	}
 	if (l != NULL) {
 		if (l->type == EXTERNAL) {
 			parse_error("label declared as external cannot be defined");
@@ -273,6 +280,10 @@ int install_label_defintion(label_section_t section)
 int install_label_declaration(label_type_t type) 
 {
 	label_t *l;
+
+	if (pass == SECOND_PASS) {
+		return 0;
+	}
 
 	l = lookup_label(label_declaration);
 	if (l != NULL) {
@@ -342,6 +353,8 @@ int parse_string_directive(void)
 		parse_error("expected \"");
 		return 1;
 	}
+
+	data_section[data_index++] = '\0';
 
 	return 0;
 }
@@ -598,33 +611,29 @@ int parse_instruction_name(instruction_t **instruction)
 
 int parse_instruction(void) 
 {
-	/* TODO use them */
-	instruction_t *instruction;
-	instruction_comb_t comb __attribute__((unused));
-	operand_t first_op, second_op;
-
+	full_instruction_t *full_instruction = &full_instructions[full_instruction_index++];
 	if (label_defined) {
 		if (install_label_defintion(CODE)) {
 			return 1;
 		}
 	}
 
-	if (parse_instruction_name(&instruction)) {
+	if (parse_instruction_name(&(full_instruction->instruction))) {
 		return 1;
 	}
 
-	if (parse_instruction_comb(&comb)) {
+	if (parse_instruction_comb(&(full_instruction->comb))) {
 		return 1;
 	}
 
 	code_index++;
 
-	switch (instruction->num_opernads) {
+	switch (full_instruction->instruction->num_opernads) {
 		case 2:
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&first_op, instruction->src_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->first_op), full_instruction->instruction->src_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -633,7 +642,7 @@ int parse_instruction(void)
 				return 1;
 			}
 			parse_whitespace();
-			if (parse_instrcution_operand(&second_op, instruction->dest_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->second_op), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -642,7 +651,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&second_op, instruction->dest_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->second_op), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();

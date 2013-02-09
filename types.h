@@ -68,4 +68,15 @@ typedef struct {
 		int code;
 } instruction_t;
 
+typedef struct {
+	instruction_t *instruction;
+	instruction_comb_t comb;
+	operand_t first_op, second_op;
+} full_instruction_t;
+
+typedef enum {
+	FIRST_PASS,
+	SECOND_PASS
+} pass_t;
+
 #endif /* end of include guard: TYPES_H */
