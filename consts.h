@@ -1,0 +1,17 @@
+#ifndef CONSTS_H
+#define CONSTS_H
+
+#define MAX_LINES (1000)
+#define MAX_LABELS (MAX_LINES * 5)
+
+#define MAX_FILENAME_LENGTH (256)
+#define MAX_LINE_LENGTH (256)
+#define MAX_LABEL_LENGTH (30)
+#define INSTRUCTION_NAME_LENGTH (3)
+
+#define DATA_SECTION_MAX_LENGTH (1000)
+#define CODE_SECTION_MAX_LENGTH (1000)
+
+#define MAX_DIRECTIVE_NAME_LENGTH (32)
+
+#endif /* end of include guard: CONSTS_H */
