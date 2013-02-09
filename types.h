@@ -65,6 +65,7 @@ typedef struct {
 		address_mode_t src_address_modes;
 		address_mode_t dest_address_modes;
 		unsigned int num_opernads;
+		int code;
 } instruction_t;
 
 #endif /* end of include guard: TYPES_H */
