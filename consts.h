@@ -14,4 +14,14 @@
 
 #define MAX_DIRECTIVE_NAME_LENGTH (32)
 
+#define COMB_OFFSET (0)
+#define DEST_REGISTER_OFFSET (2)
+#define DEST_ADDRESS_MODE_OFFSET (5)
+#define SRC_REGISTER_OFFSET (7)
+#define SRC_ADDRESS_MODE_OFFSET (10)
+#define OPCODE_OFFSET (12)
+#define TYPE_OFFSET (16)
+
+#define DATA_START_OFFSET (128)
+
 #endif /* end of include guard: CONSTS_H */

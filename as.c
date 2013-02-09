@@ -57,6 +57,7 @@ void process_assembly_file(const char * source_filename)
 	rewind(fp);
 	pass = SECOND_PASS;
 	code_index = 0;
+	data_index = 0;
 
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
