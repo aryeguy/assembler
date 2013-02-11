@@ -26,19 +26,25 @@ void process_assembly_file(const char * source_filename)
 
 	/* actual_source_filename <- source_filename + ".as" */
 	strncpy(actual_source_filename, source_filename, MAX_FILENAME_LENGTH);
-	strncat(actual_source_filename, ".as", MAX_FILENAME_LENGTH);
+	strncat(actual_source_filename, ".as", MAX_FILENAME_LENGTH - strlen(source_filename));
+
 	fp = fopen(actual_source_filename, "rt");
-	input_filename = actual_source_filename;
+
 	if (NULL == fp) {
 		perror("couldn't open assembly file"); 
 		return;
 	}
 
+	/* save filename to global variable */
+	input_filename = actual_source_filename;
+
+	/* initialized global variables for first pass */
 	pass = FIRST_PASS;
 	full_instruction_index = 0;
 	code_index = 0;
 	data_index = 0;
 
+	/* first pass (expecting failure) */
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
@@ -47,18 +53,23 @@ void process_assembly_file(const char * source_filename)
 		}
 	}
 
-
 	if (failed)
 	{
+		fclose(fp);
 		return;
 	}
 
+	if (fseek(fp, 0, SEEK_SET)) {
+		perror("input file rewind failed");
+		fclose(fp);
+	}
 
-	rewind(fp);
+	/* initialized global variables for second pass */
 	pass = SECOND_PASS;
 	code_index = 0;
 	data_index = 0;
 
+	/* second pass, not expecting a failure (assert?) */
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
@@ -67,8 +78,11 @@ void process_assembly_file(const char * source_filename)
 
 	fclose(fp);
 
-	output(source_filename);
+	/* TODO validate all labels have 
+	 * addres execpt extern labels */
 
+	/* best effort, no error handling on purpose */
+	output(source_filename);
 }
 
 int main(int argc, const char *argv[])
