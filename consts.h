@@ -22,6 +22,6 @@
 #define OPCODE_OFFSET (12)
 #define TYPE_OFFSET (16)
 
-#define DATA_START_OFFSET (128)
+#define START_OFFSET (100)
 
 #endif /* end of include guard: CONSTS_H */

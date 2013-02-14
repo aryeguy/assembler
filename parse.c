@@ -469,6 +469,7 @@ int parse_instruction_comb(instruction_comb_t *combp)
 		return 1;
 	}
 
+	/* TODO change output */
 	if (source_operand_right && dest_operand_right) {
 		*combp = RIGHT_SOURCE_RIGHT_DEST_COMB;
 	}
@@ -535,7 +536,6 @@ int parse_instrcution_operand(operand_t *operand, int available_address_modes)
 	if (is_immediate_operand()) {
 		code_index++;
 		operand->type = IMMEDIATE_ADDRESS;
-		/* TODO check if available */
 		if (parse_instrcution_operand_immediate(&(operand->value.immediate))) {
 			return 1;
 		}
