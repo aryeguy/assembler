@@ -19,5 +19,5 @@ clean:
 	rm -f $(PRODUCTS)
 
 .PHONY: test
-test:
+test: $(EXECUTABLE)
 	./as ps ps2 ps3
