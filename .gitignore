@@ -1,6 +1,8 @@
 *.tmp
 *.o
 *.obj
+*.ent
+*.ext
 as
 cscope.out
 .gdbinit
