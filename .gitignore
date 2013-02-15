@@ -4,3 +4,6 @@
 as
 cscope.out
 .gdbinit
+*.gcda
+*.gcno
+cov.stab
