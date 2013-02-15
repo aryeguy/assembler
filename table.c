@@ -45,6 +45,15 @@ int validate_labels(void)
 	return failed;
 }
 
+void loop_labels(void (*fun)(label_t *))
+{
+	int i;
+
+	for (i = 0; i < free_label_index; i++)
+	{
+		fun(&labels[i]);
+	}
+}
 
 int install_label(label_name_t name, label_t **label)
 {

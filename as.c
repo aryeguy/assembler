@@ -43,6 +43,7 @@ void process_assembly_file(const char * source_filename)
 	pass = FIRST_PASS;
 	full_instruction_index = 0;
 	code_index = 0;
+	data_index = 0;
 
 	/* first pass (expecting failure) */
 	for (input_linenumber = 1;
@@ -66,8 +67,8 @@ void process_assembly_file(const char * source_filename)
 
 	/* initialized global variables for second pass */
 	pass = SECOND_PASS;
+	full_instruction_index = 0;
 	code_index = 0;
-	data_index = 0;
 
 	/* second pass, not expecting a failure (assert?) */
 	for (input_linenumber = 1;

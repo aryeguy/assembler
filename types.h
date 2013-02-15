@@ -23,6 +23,12 @@ typedef enum {
 } label_type_t;
 
 typedef enum {
+	ABSOLUTE_LINKAGE,
+	RELOCATBLE_LINKAGE,
+	EXTERNAL_LINKAGE
+} linker_data_t;
+
+typedef enum {
 	FULL_COMB,
 	LEFT_SOURCE_LEFT_DEST_COMB,
 	RIGHT_SOURCE_LEFT_DEST_COMB,
@@ -40,7 +46,7 @@ typedef struct {
 
 typedef enum {
 	NO_ADDRESS,
-	IMMEDIATE_ADDRESS= 0,
+	IMMEDIATE_ADDRESS,
 	DIRECT_ADDRESS,
 	INDEX_ADDRESS,
 	DIRECT_REGISTER_ADDRESS

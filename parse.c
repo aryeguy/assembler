@@ -94,15 +94,6 @@ instruction_t instructions[] = {
 		017},
 };
 
-void parse_debug(char *gripe)
-{
-	fprintf(stderr, "%s:%u:%u: debug: %s\n",
-			input_filename,
-			input_linenumber,
-			input_line - input_line_start,
-		       	gripe);
-}
-
 void parse_error(char *gripe)
 {
 	fprintf(stderr, "%s:%u:%u: error: %s\n",
@@ -112,18 +103,18 @@ void parse_error(char *gripe)
 		       	gripe);
 }
 
-int isblank(char c)
+static int isblank(char c)
 {
 	return c == ' ' || c == '\t';
 }
 
-void parse_whitespace(void)
+static void parse_whitespace(void)
 {
 	while (isblank(*input_line++));
 	input_line--;
 }
 
-int parse_whitespace_must(void)
+static int parse_whitespace_must(void)
 {
 	if (!isblank(*input_line)) {
 		parse_error("expected whitespace");
@@ -134,12 +125,12 @@ int parse_whitespace_must(void)
 	return 0;
 }
 
-int is_comment(void) 
+static int is_comment(void)
 {
 	return input_line[0] == ';';
 }
 
-int is_empty(void)
+static int is_empty(void)
 {
 	char *p;
 
@@ -152,18 +143,7 @@ int is_empty(void)
 	return 1;
 }
 
-int parse_line(char *line)
-{
-	input_line = input_line_start = line;
-	if (is_comment() || is_empty()) {
-		return 0;
-	}
-	else {
-		return parse_action_line();
-	}
-}
-
-int parse_label(label_name_t name)
+static int parse_label(label_name_t name)
 {
 	char *label_begin = input_line;
 
@@ -186,7 +166,7 @@ int parse_label(label_name_t name)
 	return 0;
 }
 
-int parse_label_use(label_name_t name)
+static int parse_label_use(label_name_t name)
 {
 	if (parse_label(name)) {
 		return 1;
@@ -201,7 +181,7 @@ int parse_label_use(label_name_t name)
 	return 0;
 }
 
-int parse_label_definition(void)
+static int parse_label_definition(void)
 {
 	if (strchr(input_line, ':')) {
 		label_defined = 1;
@@ -218,12 +198,12 @@ int parse_label_definition(void)
 	return 0;
 }
 
-int parse_label_declaration(void)
+static int parse_label_declaration(void)
 {
 	return parse_label(label_declaration);
 }
 
-int parse_number(long *x)
+static int parse_number(long *x)
 {
 	char *p;
 
@@ -238,7 +218,7 @@ int parse_number(long *x)
 	return 0;
 }
 
-int parse_data_number(void)
+static int parse_data_number(void)
 {
 	long int x;
 
@@ -250,7 +230,7 @@ int parse_data_number(void)
 	return 0;
 }
 
-int install_label_defintion(label_section_t section)
+static int install_label_defintion(label_section_t section)
 {
 	label_t *l;
 
@@ -289,7 +269,7 @@ int install_label_defintion(label_section_t section)
 	return 0;
 }
 
-int install_label_declaration(label_type_t type) 
+static int install_label_declaration(label_type_t type)
 {
 	label_t *l;
 
@@ -314,7 +294,7 @@ int install_label_declaration(label_type_t type)
 	return 0;
 }
 
-int parse_data_directive(void)
+static int parse_data_directive(void)
 {
 	if (label_defined) {
 		if (install_label_defintion(DATA)) {
@@ -337,7 +317,7 @@ int parse_data_directive(void)
 	return 0;
 }
 
-int parse_string_directive(void)
+static int parse_string_directive(void)
 {
 	if (*input_line++ != '"') {
 		parse_error("expected \"");
@@ -367,7 +347,7 @@ int parse_string_directive(void)
 	return 0;
 }
 
-int parse_entry_directive(void)
+static int parse_entry_directive(void)
 {
 	if (parse_label_declaration()) {
 		return 1;
@@ -376,7 +356,7 @@ int parse_entry_directive(void)
 	return install_label_declaration(ENTRY);
 }
 
-int parse_extern_directive(void)
+static int parse_extern_directive(void)
 {
 	if (parse_label_declaration()) {
 		return 1;
@@ -385,7 +365,7 @@ int parse_extern_directive(void)
 	return install_label_declaration(EXTERNAL);
 }
 
-int parse_end_of_line(void)
+static int parse_end_of_line(void)
 {
 	parse_whitespace();
 	if (*input_line && *input_line != '\n') {
@@ -396,7 +376,7 @@ int parse_end_of_line(void)
 	return 0;
 }
 
-int parse_directive(void)
+static int parse_directive(void)
 {
 	struct {
 		char name[MAX_DIRECTIVE_NAME_LENGTH];
@@ -427,7 +407,7 @@ int parse_directive(void)
 	}
 }
 
-int parse_instruction_comb(instruction_comb_t *combp)
+static int parse_instruction_comb(instruction_comb_t *combp)
 {
 	int source_operand_right;
 	int dest_operand_right;
@@ -477,7 +457,6 @@ int parse_instruction_comb(instruction_comb_t *combp)
 		return 1;
 	}
 
-	/* TODO change output */
 	if (source_operand_right && dest_operand_right) {
 		*combp = RIGHT_SOURCE_RIGHT_DEST_COMB;
 	}
@@ -493,22 +472,22 @@ int parse_instruction_comb(instruction_comb_t *combp)
 	return 0;
 }
 
-int is_register_operand(void)
+static int is_register_operand(void)
 {
 	return *input_line == 'r' && input_line[1] >= '0' && input_line[1] <= '7';
 }
 
-int is_immediate_operand(void)
+static int is_immediate_operand(void)
 {
 	return *input_line == '#';
 }
 
-int is_direct_register_operand(void)
+static int is_direct_register_operand(void)
 {
 	return is_register_operand();
 }
 
-int parse_register(int *reg)
+static int parse_register(int *reg)
 {
 	assert(*input_line == 'r');
 	/* skip r */
@@ -522,7 +501,7 @@ int parse_register(int *reg)
 	return 0;
 }
 
-int parse_instruction_operand_immediate(long *immediate)
+static int parse_instruction_operand_immediate(long *immediate)
 {
 	assert(*input_line == '#');
 	/* skip # */
@@ -534,12 +513,12 @@ int parse_instruction_operand_immediate(long *immediate)
 	return 0;
 }
 
-int parse_instruction_operand_register_direct(int *reg)
+static int parse_instruction_operand_register_direct(int *reg)
 {
 	return parse_register(reg);
 }
 
-int parse_instruction_operand(operand_t *operand, int available_address_modes)
+static int parse_instruction_operand(operand_t *operand, int available_address_modes)
 {
 	if (is_immediate_operand()) {
 		code_index++;
@@ -599,7 +578,7 @@ int parse_instruction_operand(operand_t *operand, int available_address_modes)
 	return 0;
 }
 
-int parse_instruction_name(instruction_t **instruction)
+static int parse_instruction_name(instruction_t **instruction)
 {
 	int i;
 
@@ -620,7 +599,7 @@ int parse_instruction_name(instruction_t **instruction)
 	return 0;
 }
 
-int parse_instruction(void) 
+static int parse_instruction(void)
 {
 	full_instruction_t *full_instruction = &full_instructions[full_instruction_index++];
 	if (label_defined && pass == FIRST_PASS) {
@@ -674,7 +653,7 @@ int parse_instruction(void)
 	return 0;
 }
 
-int parse_action_line(void)
+static int parse_action_line(void)
 {
 	label_defined = 0;
 
@@ -706,4 +685,15 @@ int parse_action_line(void)
 	}
 
 	return parse_end_of_line();	
+}
+
+int parse_line(char *line)
+{
+	input_line = input_line_start = line;
+	if (is_comment() || is_empty()) {
+		return 0;
+	}
+	else {
+		return parse_action_line();
+	}
 }
