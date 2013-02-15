@@ -12,6 +12,11 @@
 static label_t labels[MAX_LABELS];
 static int free_label_index = 0;
 
+void init_labels(void)
+{
+	free_label_index = 0;
+}
+
 int validate_labels(void)
 {
 	int i;

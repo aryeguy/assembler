@@ -24,6 +24,7 @@ void process_assembly_file(const char * source_filename)
 	char line[MAX_LINE_LENGTH];
 	int failed = 0;
 
+	init_labels();
 	/* actual_source_filename <- source_filename + ".as" */
 	strncpy(actual_source_filename, source_filename, MAX_FILENAME_LENGTH);
 	strncat(actual_source_filename, ".as", MAX_FILENAME_LENGTH - strlen(source_filename));
@@ -42,7 +43,6 @@ void process_assembly_file(const char * source_filename)
 	pass = FIRST_PASS;
 	full_instruction_index = 0;
 	code_index = 0;
-	data_index = 0;
 
 	/* first pass (expecting failure) */
 	for (input_linenumber = 1;
