@@ -17,3 +17,7 @@ $(OBJECTS): $(HEADERS)
 
 clean: 
 	rm -f $(PRODUCTS)
+
+.PHONY: test
+test:
+	./as ps ps2 ps3
