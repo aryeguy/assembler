@@ -31,67 +31,67 @@ instruction_t instructions[] = {
 	{"mov", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		2,
-		0},
+		00},
 	{"cmp", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		2,
-		1},
+		01},
 	{"add", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS),
 		2,
-		2},
+		02},
 	{"sub", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		2,
-		3},
+		03},
 	{"lea", FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS),
 		2,
-		4},
+		06},
 	{"not", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		5},
+		04},
 	{"clr", FLAG(NO_ADDRESS),
 	       	FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		6},
+		05},
 	{"inc", FLAG(NO_ADDRESS),
 	       	FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		7},
+		07},
 	{"dec", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		8},
+		010},
 	{"jmp", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		9},
+		011},
 	{"bne", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		10},
+		012},
 	{"red", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		11},
+		013},
 	{"prn", FLAG(NO_ADDRESS), 
 		FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		1,
-		12},
+		014},
 	{"jsr", FLAG(NO_ADDRESS), 
 		FLAG(DIRECT_ADDRESS), 
 		1,
-		13},
+		015},
 	{"rts", FLAG(NO_ADDRESS), 
 		FLAG(NO_ADDRESS), 
 		0,
-		14},
+		016},
 	{"stp", FLAG(NO_ADDRESS), 
 		FLAG(NO_ADDRESS), 
 		0,
-		15},
+		017},
 };
 
 void parse_debug(char *gripe)
@@ -555,19 +555,22 @@ int parse_instrcution_operand(operand_t *operand, int available_address_modes)
 			operand->type = INDEX_ADDRESS;
 			input_line++;
 			if (is_register_operand()) {
+				operand->index_type = REGISTER;
 				if (parse_register(&(operand->index.reg))) {
 					return 1;
 				}
 			} else if (isdigit(*input_line)) {
+				operand->index_type = IMMEDIATE;
 				code_index++;
 				if (parse_number(&(operand->index.immediate))) {
 					return 1;
 				}
-			} else {
+			} else if (!parse_label(operand->index.label)) {
+				operand->index_type = LABEL;
 				code_index++;
-				if (parse_label(operand->index.label)) {
-					return 1;
-				}
+			} else {
+				parse_error("invalid index addersing");
+				return 1;
 			}
 			if (*input_line++ != '}')
 			{
@@ -633,7 +636,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&(full_instruction->first_op), full_instruction->instruction->src_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->src_operand), full_instruction->instruction->src_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -642,7 +645,7 @@ int parse_instruction(void)
 				return 1;
 			}
 			parse_whitespace();
-			if (parse_instrcution_operand(&(full_instruction->second_op), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -651,7 +654,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&(full_instruction->second_op), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instrcution_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();

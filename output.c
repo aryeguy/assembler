@@ -43,13 +43,52 @@ void print_base4(FILE *fp, int number, int padding)
 int assemble_instruction(full_instruction_t full_instruction)
 {
 	int assembled_instruction = 0;
-	assembled_instruction += full_instruction.comb << COMB_OFFSET;
-	assembled_instruction += full_instruction.first_op.value.reg << SRC_REGISTER_OFFSET;
-	assembled_instruction += full_instruction.first_op.type << SRC_ADDRESS_MODE_OFFSET;
-	assembled_instruction += full_instruction.second_op.value.reg << DEST_REGISTER_OFFSET;
-	assembled_instruction += full_instruction.second_op.type << DEST_ADDRESS_MODE_OFFSET;
-	assembled_instruction += full_instruction.instruction->code << DEST_ADDRESS_MODE_OFFSET;
-	assembled_instruction += full_instruction.instruction->code << DEST_ADDRESS_MODE_OFFSET;
+	int type_field;
+	int comb_field;
+
+	switch(full_instruction.comb) {
+		case FULL_COMB:
+			type_field = 0;
+			comb_field = 0;
+			break;
+		case LEFT_SOURCE_LEFT_DEST_COMB:
+			type_field = 1;
+			comb_field = 0;
+			break;
+		case LEFT_SOURCE_RIGHT_DEST_COMB:
+			type_field = 1;
+			comb_field = 1;
+			break;
+		case RIGHT_SOURCE_LEFT_DEST_COMB:
+			type_field = 1;
+			comb_field = 2;
+			break;
+		case RIGHT_SOURCE_RIGHT_DEST_COMB:
+			type_field = 1;
+			comb_field = 3;
+			break;
+	}
+	assembled_instruction += comb_field << COMB_OFFSET;
+
+	if (full_instruction.dest_operand.type == DIRECT_REGISTER_ADDRESS \
+		       	|| (full_instruction.dest_operand.type == INDEX_ADDRESS \
+			&& full_instruction.dest_operand.index_type == REGISTER))
+	{
+		assembled_instruction += full_instruction.dest_operand.value.reg << DEST_REGISTER_OFFSET;
+	}
+	assembled_instruction += full_instruction.dest_operand.type << DEST_ADDRESS_MODE_OFFSET;
+
+	if (full_instruction.src_operand.type == DIRECT_REGISTER_ADDRESS \
+		       	|| (full_instruction.src_operand.type == INDEX_ADDRESS \
+			&& full_instruction.src_operand.index_type == REGISTER))
+	{
+		assembled_instruction += full_instruction.src_operand.value.reg << SRC_REGISTER_OFFSET;
+	}
+	assembled_instruction += full_instruction.src_operand.type << SRC_ADDRESS_MODE_OFFSET;
+
+	assembled_instruction += full_instruction.instruction->opcode << OPCODE_OFFSET;
+	assembled_instruction += type_field << TYPE_OFFSET;
+
 	return assembled_instruction;
 }
 
@@ -59,9 +98,9 @@ void output_data(FILE *fp)
 
 	for (i = 0; i < data_index; i++)
 	{
-		print_base4(fp, START_OFFSET + code_index + i, 8);
+		print_base4(fp, START_OFFSET + code_index + i, 4);
 		fprintf(fp, "\t");
-		print_base4(fp, data_section[i], 8);
+		print_base4(fp, data_section[i], 10);
 		fprintf(fp, "\n");
 	}
 }
@@ -72,10 +111,10 @@ void output_code(FILE *fp)
 
 	for (i = 0; i < full_instruction_index; i++)
 	{
-		print_base4(fp, START_OFFSET + i, 8);
+		print_base4(fp, START_OFFSET + i, 4);
 		fprintf(fp, "\t");
-		print_base4(fp, assemble_instruction(full_instructions[i]), 8);
-		fprintf(fp, "\n");
+		print_base4(fp, assemble_instruction(full_instructions[i]), 10);
+		fprintf(fp, "\ta\n");
 	}
 }
 

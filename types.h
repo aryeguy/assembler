@@ -40,7 +40,7 @@ typedef struct {
 
 typedef enum {
 	NO_ADDRESS,
-	IMMEDIATE_ADDRESS,
+	IMMEDIATE_ADDRESS= 0,
 	DIRECT_ADDRESS,
 	INDEX_ADDRESS,
 	DIRECT_REGISTER_ADDRESS
@@ -53,6 +53,11 @@ typedef struct {
 		int reg;
 		label_name_t label;
 	} value;
+	enum {
+		IMMEDIATE,
+		REGISTER,
+		LABEL
+	} index_type;
 	union {
 		long immediate;
 		int reg;
@@ -65,13 +70,14 @@ typedef struct {
 		address_mode_t src_address_modes;
 		address_mode_t dest_address_modes;
 		unsigned int num_opernads;
-		int code;
+		int opcode;
 } instruction_t;
 
 typedef struct {
 	instruction_t *instruction;
 	instruction_comb_t comb;
-	operand_t first_op, second_op;
+	operand_t src_operand;
+	operand_t dest_operand;
 } full_instruction_t;
 
 typedef enum {
