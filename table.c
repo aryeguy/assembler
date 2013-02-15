@@ -12,6 +12,35 @@
 static label_t labels[MAX_LABELS];
 static int free_label_index = 0;
 
+int validate_labels(void)
+{
+	int i;
+	label_t *label;
+	int failed = 0;
+
+	for (i = 0; i < free_label_index; i++)
+	{
+		label = &labels[i];
+		switch (label->type) {
+			case REGULAR: /* FALLTHROUGH */
+			case ENTRY: 
+				if (!label->has_address) {
+					fprintf(stderr, "label isn't defined: %s\n", label->name);
+					failed = 1;
+				}
+				break;
+			case EXTERNAL:
+				if (label->has_address) {
+					fprintf(stderr, "externl label defined: %s\n", label->name);
+					failed = 1;
+				}
+				break;
+		}
+	}
+	return failed;
+}
+
+
 int install_label(label_name_t name, label_t **label)
 {
 	if (free_label_index == MAX_LABELS) {
@@ -33,10 +62,10 @@ int install_label(label_name_t name, label_t **label)
 
 label_t* lookup_label(label_name_t name)
 {
-	int i = 0;
+	int i;
 	
-	for (i=0; i<free_label_index; i++) {
-		if (memcmp(labels[i].name, name, sizeof(name)) == 0) {
+	for (i = 0; i<free_label_index; i++) {
+		if (strncmp(labels[i].name, name, sizeof(name)) == 0) {
 			return &labels[i];
 		}
 	}

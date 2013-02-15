@@ -73,13 +73,21 @@ void process_assembly_file(const char * source_filename)
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
-		parse_line(line);
+		if (parse_line(line))
+		{
+			failed = 1;
+		}
 	}
 
 	fclose(fp);
+	if (failed)
+	{
+		return;
+	}
 
-	/* TODO validate all labels have 
-	 * addres execpt extern labels */
+	if (validate_labels()) {
+		return;
+	}
 
 	/* best effort, no error handling on purpose */
 	output(source_filename);

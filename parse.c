@@ -186,6 +186,21 @@ int parse_label(label_name_t name)
 	return 0;
 }
 
+int parse_label_use(label_name_t name)
+{
+	if (parse_label(name)) {
+		return 1;
+	}
+	if (pass == SECOND_PASS) {
+		if (!lookup_label(name)) {
+			parse_error("label that isn't defined is used");
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 int parse_label_definition(void)
 {
 	if (strchr(input_line, ':')) {
@@ -240,9 +255,6 @@ int install_label_defintion(label_section_t section)
 	label_t *l;
 
 	l = lookup_label(label_definition);
-	if (pass == SECOND_PASS) {
-		return 0;
-	}
 	if (l != NULL) {
 		if (l->type == EXTERNAL) {
 			parse_error("label declared as external cannot be defined");
@@ -280,10 +292,6 @@ int install_label_defintion(label_section_t section)
 int install_label_declaration(label_type_t type) 
 {
 	label_t *l;
-
-	if (pass == SECOND_PASS) {
-		return 0;
-	}
 
 	l = lookup_label(label_declaration);
 	if (l != NULL) {
@@ -514,7 +522,7 @@ int parse_register(int *reg)
 	return 0;
 }
 
-int parse_instrcution_operand_immediate(long *immediate)
+int parse_instruction_operand_immediate(long *immediate)
 {
 	assert(*input_line == '#');
 	/* skip # */
@@ -526,28 +534,28 @@ int parse_instrcution_operand_immediate(long *immediate)
 	return 0;
 }
 
-int parse_instrcution_operand_register_direct(int *reg)
+int parse_instruction_operand_register_direct(int *reg)
 {
 	return parse_register(reg);
 }
 
-int parse_instrcution_operand(operand_t *operand, int available_address_modes)
+int parse_instruction_operand(operand_t *operand, int available_address_modes)
 {
 	if (is_immediate_operand()) {
 		code_index++;
 		operand->type = IMMEDIATE_ADDRESS;
-		if (parse_instrcution_operand_immediate(&(operand->value.immediate))) {
+		if (parse_instruction_operand_immediate(&(operand->value.immediate))) {
 			return 1;
 		}
 	} else if (is_direct_register_operand()) {
 		operand->type = DIRECT_REGISTER_ADDRESS;
-		if (parse_instrcution_operand_register_direct(&(operand->value.reg))) {
+		if (parse_instruction_operand_register_direct(&(operand->value.reg))) {
 			return 1;
 		}
 	}
 	else {
 		code_index++;
-		if (parse_label(operand->value.label)) {
+		if (parse_label_use(operand->value.label)) {
 			return 1;
 		}
 		parse_whitespace();
@@ -565,7 +573,7 @@ int parse_instrcution_operand(operand_t *operand, int available_address_modes)
 				if (parse_number(&(operand->index.immediate))) {
 					return 1;
 				}
-			} else if (!parse_label(operand->index.label)) {
+			} else if (!parse_label_use(operand->index.label)) {
 				operand->index_type = LABEL;
 				code_index++;
 			} else {
@@ -615,7 +623,7 @@ int parse_instruction_name(instruction_t **instruction)
 int parse_instruction(void) 
 {
 	full_instruction_t *full_instruction = &full_instructions[full_instruction_index++];
-	if (label_defined) {
+	if (label_defined && pass == FIRST_PASS) {
 		if (install_label_defintion(CODE)) {
 			return 1;
 		}
@@ -636,7 +644,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&(full_instruction->src_operand), full_instruction->instruction->src_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->src_operand), full_instruction->instruction->src_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -645,7 +653,7 @@ int parse_instruction(void)
 				return 1;
 			}
 			parse_whitespace();
-			if (parse_instrcution_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -654,7 +662,7 @@ int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instrcution_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
@@ -682,6 +690,9 @@ int parse_action_line(void)
 	}
 
 	if (*input_line == '.') {
+		if (pass == SECOND_PASS) {
+			return 0;
+		}
 		input_line++;
 		if (parse_directive()) {
 			return 1;
