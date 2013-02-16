@@ -12,22 +12,21 @@
 
 #define FLAG(x) (1 << x)
 
-char *input_filename = NULL;
-unsigned int input_linenumber = 0;
-char *input_line = NULL;
-char *input_line_start = NULL;
-char data_section[DATA_SECTION_MAX_LENGTH];
-char code_section[CODE_SECTION_MAX_LENGTH];
 full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 int full_instruction_index = 0;
-
-label_name_t label_definition;
-label_name_t label_declaration;
+char data_section[DATA_SECTION_MAX_LENGTH];
 unsigned int data_index = 0;
 unsigned int code_index = 0;
-int label_defined = 0;
-pass_t pass;
-instruction_t instructions[] = {
+
+static int label_defined = 0;
+static pass_t pass;
+static label_name_t label_definition;
+static label_name_t label_declaration;
+static char *input_line = NULL;
+static char *input_line_start = NULL;
+static char *input_filename = NULL;
+static unsigned int input_linenumber = 0;
+static instruction_t instructions[] = {
 	{"mov", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
 		2,
@@ -103,6 +102,7 @@ void parse_error(char *gripe)
 		       	gripe);
 }
 
+/* implementation of isblank from C99 */
 static int isblank(char c)
 {
 	return c == ' ' || c == '\t';
@@ -296,10 +296,8 @@ static int install_label_declaration(label_type_t type)
 
 static int parse_data_directive(void)
 {
-	if (label_defined) {
-		if (install_label_defintion(DATA)) {
-			return 1;
-		}
+	if (label_defined && install_label_defintion(DATA)) {
+		return 1;
 	}
 	
 	if (parse_data_number()) {
@@ -324,16 +322,13 @@ static int parse_string_directive(void)
 		return 1;
 	}
 
-	if (label_defined) {
-		if (install_label_defintion(DATA)) {
-			return 1;
-		}
+	if (label_defined && install_label_defintion(DATA)) {
+		return 1;
 	}
 
 	while (*input_line && *input_line != '"')
 	{
-		data_section[data_index] = *input_line;
-		data_index++;
+		data_section[data_index++] = *input_line;
 		input_line++;
 	}
 
@@ -389,22 +384,17 @@ static int parse_directive(void)
 	int i;
 
 	for (i = 0; sizeof(directives)/sizeof(directives[0]); i++) {
-		if (!*directives[i].name) {
-			parse_error("no such directive");
-			return 1;
-		}
-		else if (strncmp(input_line, directives[i].name, strlen(directives[i].name)) == 0) {
+	 	if (strncmp(input_line, directives[i].name, strlen(directives[i].name)) == 0) {
 			input_line += strlen(directives[i].name);
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (directives[i].function()) {
-				return 1;
-			}
-
-			return 0;
+			return directives[i].function();
 		}
 	}
+	
+	parse_error("no such directive");
+	return 1;
 }
 
 static int parse_instruction_comb(instruction_comb_t *combp)
@@ -546,7 +536,7 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 				if (parse_register(&(operand->index.reg))) {
 					return 1;
 				}
-			} else if (isdigit(*input_line)) {
+			} else if (isdigit(*input_line) || *input_line == '-' || *input_line == '+') {
 				operand->index_type = IMMEDIATE;
 				code_index++;
 				if (parse_number(&(operand->index.immediate))) {
@@ -572,7 +562,7 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 	}
 
 	if (!(FLAG(operand->type) & available_address_modes)) {
-		parse_error("address mode noy allowed for this instruction");
+		parse_error("address mode not allowed for this instruction");
 		return 1;
 	}
 	return 0;
@@ -635,7 +625,6 @@ static int parse_instruction(void)
 			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
-			parse_whitespace();
 			break;
 		case 1: 
 			if (parse_whitespace_must()) {
@@ -644,7 +633,6 @@ static int parse_instruction(void)
 			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
-			parse_whitespace();
 			break;
 		case 0:
 			break;
@@ -662,7 +650,9 @@ static int parse_action_line(void)
 	}
 
 	if (label_defined) {
-		parse_whitespace_must();
+		if (parse_whitespace_must()) {
+			return 1;
+		}
 	}
 	else {
 		parse_whitespace();
@@ -687,7 +677,7 @@ static int parse_action_line(void)
 	return parse_end_of_line();	
 }
 
-int parse_line(char *line)
+static int parse_line(char *line)
 {
 	input_line = input_line_start = line;
 	if (is_comment() || is_empty()) {
@@ -697,3 +687,69 @@ int parse_line(char *line)
 		return parse_action_line();
 	}
 }
+
+/* exported functions */
+
+int parse_file(char *filename)
+{
+	FILE *fp;
+	char line[MAX_LINE_LENGTH];
+	int failed = 0;
+
+	init_labels();
+
+	fp = fopen(filename, "rt");
+
+	if (NULL == fp) {
+		perror("couldn't open assembly file"); 
+		return 1;
+	}
+
+	input_filename = filename;
+
+	/* initialized global variables for first pass */
+	pass = FIRST_PASS;
+	full_instruction_index = 0;
+	code_index = 0;
+	data_index = 0;
+
+	/* first pass (expecting failure) */
+	for (input_linenumber = 1;
+	     fgets(line, MAX_LINE_LENGTH, fp);
+	     input_linenumber++) {
+		if (parse_line(line)) {
+			failed = 1;
+		}
+	}
+
+	if (failed)
+	{
+		fclose(fp);
+		return 1;
+	}
+
+	if (fseek(fp, 0, SEEK_SET)) {
+		perror("input file rewind failed");
+		fclose(fp);
+	}
+
+	/* initialized global variables for second pass */
+	pass = SECOND_PASS;
+	full_instruction_index = 0;
+	code_index = 0;
+
+	/* second pass, not expecting a failure (assert?) */
+	for (input_linenumber = 1;
+	     fgets(line, MAX_LINE_LENGTH, fp);
+	     input_linenumber++) {
+		if (parse_line(line))
+		{
+			failed = 1;
+		}
+	}
+
+	fclose(fp);
+	
+	return failed;
+}
+

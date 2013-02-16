@@ -1,6 +1,6 @@
 *.tmp
 *.o
-*.obj
+*.ob
 *.ent
 *.ext
 as

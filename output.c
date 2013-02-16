@@ -9,7 +9,6 @@
 extern int code_index;
 extern int data_index;
 extern char data_section[DATA_SECTION_MAX_LENGTH];
-extern char code_section[CODE_SECTION_MAX_LENGTH];
 extern full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 extern int full_instruction_index;
 
@@ -109,7 +108,10 @@ static void output_operand_label(label_name_t name)
 {
 	label_t *label = lookup_label(name);
 	if (label->type == EXTERNAL) {
+		/* output the label use the to .ext file */
 		output_external_label_use(label);
+		/* output a line with a zero data and symbol the linker 
+		 * that this line needs external linkage */
 		output_code_line(0, EXTERNAL_LINKAGE);
 	} else {
 		switch (label->section) {
@@ -135,7 +137,7 @@ static void output_operand(operand_t *operand)
 			output_operand_label(operand->value.label);
 			break;
 		case INDEX_ADDRESS:
-			output_code_line(lookup_label(operand->value.label)->address, RELOCATBLE_LINKAGE);
+			output_operand_label(operand->value.label);
 			switch (operand->index_type) {
 				case IMMEDIATE:
 					output_code_line(operand->index.immediate, ABSOLUTE_LINKAGE);
@@ -184,11 +186,11 @@ static void output_instruction(full_instruction_t full_instruction)
 			type_field = 1;
 			comb_field = 0;
 			break;
-		case LEFT_SOURCE_RIGHT_DEST_COMB:
+		case RIGHT_SOURCE_LEFT_DEST_COMB:
 			type_field = 1;
 			comb_field = 1;
 			break;
-		case RIGHT_SOURCE_LEFT_DEST_COMB:
+		case LEFT_SOURCE_RIGHT_DEST_COMB:
 			type_field = 1;
 			comb_field = 2;
 			break;
@@ -199,22 +201,29 @@ static void output_instruction(full_instruction_t full_instruction)
 	}
 	assembled_instruction += comb_field << COMB_OFFSET;
 
-	if (full_instruction.dest_operand.type == DIRECT_REGISTER_ADDRESS \
-		       	|| (full_instruction.dest_operand.type == INDEX_ADDRESS \
-			&& full_instruction.dest_operand.index_type == REGISTER))
+	if (full_instruction.dest_operand.type == DIRECT_REGISTER_ADDRESS)
 	{
 		assembled_instruction += full_instruction.dest_operand.value.reg << DEST_REGISTER_OFFSET;
 	}
+	else if (full_instruction.dest_operand.type == INDEX_ADDRESS \
+	         && full_instruction.dest_operand.index_type == REGISTER) 
+	{
+		assembled_instruction += full_instruction.dest_operand.index.reg << DEST_REGISTER_OFFSET;
+	}
 	assembled_instruction += encode_address_mode(full_instruction.dest_operand.type) << DEST_ADDRESS_MODE_OFFSET;
 
-	if (full_instruction.src_operand.type == DIRECT_REGISTER_ADDRESS \
-		       	|| (full_instruction.src_operand.type == INDEX_ADDRESS \
-			&& full_instruction.src_operand.index_type == REGISTER))
+
+	if (full_instruction.src_operand.type == DIRECT_REGISTER_ADDRESS)
 	{
 		assembled_instruction += full_instruction.src_operand.value.reg << SRC_REGISTER_OFFSET;
 	}
-	assembled_instruction += encode_address_mode(full_instruction.src_operand.type) << SRC_ADDRESS_MODE_OFFSET;
+	else if (full_instruction.src_operand.type == INDEX_ADDRESS \
+	         && full_instruction.src_operand.index_type == REGISTER) 
+	{
+		assembled_instruction += full_instruction.src_operand.index.reg << SRC_REGISTER_OFFSET;
+	}
 
+	assembled_instruction += encode_address_mode(full_instruction.dest_operand.type) << DEST_ADDRESS_MODE_OFFSET;
 	assembled_instruction += full_instruction.instruction->opcode << OPCODE_OFFSET;
 	assembled_instruction += type_field << TYPE_OFFSET;
 
@@ -258,6 +267,14 @@ static void output_code(void)
 	}
 }
 
+static void output_header(void)
+{
+	output_base4(output_file, code_index, 0);
+	fprintf(output_file, "\t");
+	output_base4(output_file, data_index, 0);
+	fprintf(output_file, "\n");
+}
+
 void output(const char *source_filename)
 {
 	char obj_filename[MAX_FILENAME_LENGTH];
@@ -268,7 +285,7 @@ void output(const char *source_filename)
 	externals_output_file = NULL;
 
 	strncpy(obj_filename, source_filename, MAX_FILENAME_LENGTH);
-	strncat(obj_filename, ".obj", MAX_FILENAME_LENGTH);
+	strncat(obj_filename, ".ob", MAX_FILENAME_LENGTH - strlen(source_filename));
 
 	output_file = fopen(obj_filename, "wt");
 	if (NULL == output_file) {
@@ -276,17 +293,16 @@ void output(const char *source_filename)
 		return;
 	}
 
-	output_base4(output_file, code_index, 0);
-	fprintf(output_file, "\t");
-	output_base4(output_file, data_index, 0);
-	fprintf(output_file, "\n");
-
+	/* output all entry labels by looping on the labels table */
 	loop_labels(output_entry_label);
+
+	output_header();
 	output_code();
 	output_data();
 
 	fclose(output_file);
 
+	/* close the files if they were opened */
 	if (entries_output_file) {
 		fclose(entries_output_file);
 	}
