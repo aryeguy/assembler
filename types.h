@@ -6,11 +6,6 @@
 typedef char label_name_t[MAX_LABEL_LENGTH];
 typedef unsigned int address_t;
 
-typedef struct {
-	char lines[MAX_LINES][MAX_LINE_LENGTH];
-	int number_of_lines;
-} source_code_t;
-
 typedef enum {
 	CODE,
 	DATA
@@ -85,10 +80,5 @@ typedef struct {
 	operand_t src_operand;
 	operand_t dest_operand;
 } full_instruction_t;
-
-typedef enum {
-	FIRST_PASS,
-	SECOND_PASS
-} pass_t;
 
 #endif /* end of include guard: TYPES_H */

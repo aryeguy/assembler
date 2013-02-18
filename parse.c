@@ -19,7 +19,10 @@ unsigned int data_index = 0;
 unsigned int code_index = 0;
 
 static int label_defined = 0;
-static pass_t pass;
+static enum {
+	FIRST_PASS,
+	SECOND_PASS
+} pass;
 static label_name_t label_definition;
 static label_name_t label_declaration;
 static char *input_line = NULL;
