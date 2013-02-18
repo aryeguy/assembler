@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h> /* for pow */
 
 #include "output.h"
 #include "types.h"
@@ -18,39 +19,18 @@ static FILE *externals_output_file;
 static const char *original_filenme;
 static int output_code_index;
 
-static void output_base4(FILE *fp, int number, int padding)
+unsigned int convert(unsigned int number, int base)
 {
-   char base_digits[4] = {'0', '1', '2', '3'};
-   struct {
-	   int value:20;
-   } truncated_number;
+	unsigned int converted_number = 0;
+	int i = 0;
 
-   int converted_number[64];
-   int index=0;
+	number &= 0xfffff; /* use only 20 bits of the number */
 
-   /* truncate the number via assignment to a 20 bit bitfield back and forth */
-   truncated_number.value = number;
-   number = truncated_number.value;
-
-   /* convert to the indicated base */
-   while (number != 0)
-   {
-	 converted_number[index] = number % 4;
-	 number = number / 4;
-	 ++index;
-   }
-
-   padding -= index;
-   while (padding-- > 0) {
-	   converted_number[index++] = 0;
-   }
-
-   /* now print the result in reverse order */
-   --index;  /* back up to last entry in the array */
-   for(  ; index>=0; index--) /* go backward through array */
-   {
-	 fprintf(fp, "%c", base_digits[converted_number[index]]);
-   }
+	while (number) {
+		converted_number += pow(10, i++)*(number % base);
+		number /= base;
+	}
+	return converted_number;
 }
 
 static void output_entry_label(label_t *label)
@@ -67,18 +47,13 @@ static void output_entry_label(label_t *label)
 		}
 	}
 	if (label->type == ENTRY) {
-		fprintf(entries_output_file, "%s\t", label->name);
-		output_base4(entries_output_file, label->address + START_OFFSET + (label->section == DATA ? code_index : 0), 4);
-		fprintf(entries_output_file, "\n");
+		fprintf(entries_output_file, "%s\t%010u\n", label->name, convert(label->address + START_OFFSET + (label->section == DATA ? code_index : 0) , 4));
 	}
 }
 
 static void output_code_line(int data, linker_data_t linker_data)
 {
-	output_base4(ob_output_file, output_code_index++, 4);
-	fprintf(ob_output_file, "\t");
-	output_base4(ob_output_file, data, 10);
-	fprintf(ob_output_file, "\t");
+	fprintf(ob_output_file, "%04u\t%010u\t", convert(output_code_index++, 4), convert(data, 4));
 	switch (linker_data) {
 		case ABSOLUTE_LINKAGE:
 			fprintf(ob_output_file, "a");
@@ -106,9 +81,7 @@ static void output_external_label_use(label_t *label)
 			return;
 		}
 	}
-	fprintf(externals_output_file, "%s\t", label->name);
-	output_base4(externals_output_file, output_code_index, 4);
-	fprintf(externals_output_file, "\n");
+	fprintf(externals_output_file, "%s\t%04u\n", label->name, convert(output_code_index, 4));
 }
 
 static void output_operand_label(label_name_t name)
@@ -230,7 +203,7 @@ static void output_instruction(full_instruction_t full_instruction)
 		assembled_instruction += full_instruction.src_operand.index.reg << SRC_REGISTER_OFFSET;
 	}
 
-	assembled_instruction += encode_address_mode(full_instruction.dest_operand.type) << DEST_ADDRESS_MODE_OFFSET;
+	assembled_instruction += encode_address_mode(full_instruction.src_operand.type) << SRC_ADDRESS_MODE_OFFSET;
 	assembled_instruction += full_instruction.instruction->opcode << OPCODE_OFFSET;
 	assembled_instruction += type_field << TYPE_OFFSET;
 
@@ -243,10 +216,7 @@ static void output_data(void)
 
 	for (i = 0; i < data_index; i++)
 	{
-		output_base4(ob_output_file, START_OFFSET + code_index + i, 4);
-		fprintf(ob_output_file, "\t");
-		output_base4(ob_output_file, data_section[i], 10);
-		fprintf(ob_output_file, "\n");
+		fprintf(ob_output_file, "%04u\t%010u\n", convert(START_OFFSET + code_index + i, 4), convert(data_section[i], 4));
 	}
 }
 
@@ -276,10 +246,7 @@ static void output_code(void)
 
 static void output_header(void)
 {
-	output_base4(ob_output_file, code_index, 0);
-	fprintf(ob_output_file, "\t");
-	output_base4(ob_output_file, data_index, 0);
-	fprintf(ob_output_file, "\n");
+	fprintf(ob_output_file, "%u\t%u\n", convert(code_index, 4), convert(data_index, 4));
 }
 
 void output(const char *source_filename)
