@@ -21,9 +21,16 @@ int output_code_index;
 static void output_base4(FILE *fp, int number, int padding)
 {
    char base_digits[4] = {'0', '1', '2', '3'};
+   struct {
+	   int value:20;
+   } truncated_number;
 
    int converted_number[64];
    int index=0;
+
+   /* truncate the number via assignment to a 20 bit bitfield back and forth */
+   truncated_number.value = number;
+   number = truncated_number.value;
 
    /* convert to the indicated base */
    while (number != 0)
@@ -306,6 +313,7 @@ void output(const char *source_filename)
 	if (entries_output_file) {
 		fclose(entries_output_file);
 	}
+
 	if (externals_output_file) {
 		fclose(externals_output_file);
 	}
