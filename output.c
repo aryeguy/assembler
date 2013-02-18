@@ -312,9 +312,11 @@ void output(const char *source_filename)
 	/* close the files if they were opened */
 	if (entries_output_file) {
 		fclose(entries_output_file);
+		entries_output_file = NULL;
 	}
 
 	if (externals_output_file) {
 		fclose(externals_output_file);
+		externals_output_file = NULL;
 	}
 }
