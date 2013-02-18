@@ -12,11 +12,11 @@ extern char data_section[DATA_SECTION_MAX_LENGTH];
 extern full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 extern int full_instruction_index;
 
-FILE *output_file;
-FILE *entries_output_file;
-FILE *externals_output_file;
-const char *original_filenme;
-int output_code_index;
+static FILE *ob_output_file;
+static FILE *entries_output_file;
+static FILE *externals_output_file;
+static const char *original_filenme;
+static int output_code_index;
 
 static void output_base4(FILE *fp, int number, int padding)
 {
@@ -75,22 +75,22 @@ static void output_entry_label(label_t *label)
 
 static void output_code_line(int data, linker_data_t linker_data)
 {
-	output_base4(output_file, output_code_index++, 4);
-	fprintf(output_file, "\t");
-	output_base4(output_file, data, 10);
-	fprintf(output_file, "\t");
+	output_base4(ob_output_file, output_code_index++, 4);
+	fprintf(ob_output_file, "\t");
+	output_base4(ob_output_file, data, 10);
+	fprintf(ob_output_file, "\t");
 	switch (linker_data) {
 		case ABSOLUTE_LINKAGE:
-			fprintf(output_file, "a");
+			fprintf(ob_output_file, "a");
 			break;
 		case RELOCATBLE_LINKAGE:
-			fprintf(output_file, "r");
+			fprintf(ob_output_file, "r");
 			break;
 		case EXTERNAL_LINKAGE:
-			fprintf(output_file, "e");
+			fprintf(ob_output_file, "e");
 			break;
 	}
-	fprintf(output_file, "\n");
+	fprintf(ob_output_file, "\n");
 }
 
 static void output_external_label_use(label_t *label)
@@ -243,10 +243,10 @@ static void output_data(void)
 
 	for (i = 0; i < data_index; i++)
 	{
-		output_base4(output_file, START_OFFSET + code_index + i, 4);
-		fprintf(output_file, "\t");
-		output_base4(output_file, data_section[i], 10);
-		fprintf(output_file, "\n");
+		output_base4(ob_output_file, START_OFFSET + code_index + i, 4);
+		fprintf(ob_output_file, "\t");
+		output_base4(ob_output_file, data_section[i], 10);
+		fprintf(ob_output_file, "\n");
 	}
 }
 
@@ -276,10 +276,10 @@ static void output_code(void)
 
 static void output_header(void)
 {
-	output_base4(output_file, code_index, 0);
-	fprintf(output_file, "\t");
-	output_base4(output_file, data_index, 0);
-	fprintf(output_file, "\n");
+	output_base4(ob_output_file, code_index, 0);
+	fprintf(ob_output_file, "\t");
+	output_base4(ob_output_file, data_index, 0);
+	fprintf(ob_output_file, "\n");
 }
 
 void output(const char *source_filename)
@@ -294,8 +294,8 @@ void output(const char *source_filename)
 	strncpy(obj_filename, source_filename, MAX_FILENAME_LENGTH);
 	strncat(obj_filename, ".ob", MAX_FILENAME_LENGTH - strlen(source_filename));
 
-	output_file = fopen(obj_filename, "wt");
-	if (NULL == output_file) {
+	ob_output_file = fopen(obj_filename, "wt");
+	if (NULL == ob_output_file) {
 		perror("couldn't open obj file"); 
 		return;
 	}
@@ -307,7 +307,7 @@ void output(const char *source_filename)
 	output_code();
 	output_data();
 
-	fclose(output_file);
+	fclose(ob_output_file);
 
 	/* close the files if they were opened */
 	if (entries_output_file) {
