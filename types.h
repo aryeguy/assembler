@@ -40,11 +40,11 @@ typedef struct {
 } label_t;
 
 typedef enum {
-	NO_ADDRESS,
-	IMMEDIATE_ADDRESS,
-	DIRECT_ADDRESS,
-	INDEX_ADDRESS,
-	DIRECT_REGISTER_ADDRESS
+	NO_ADDRESS = 1,
+	IMMEDIATE_ADDRESS = 2,
+	DIRECT_ADDRESS = 4,
+	INDEX_ADDRESS = 8,
+	DIRECT_REGISTER_ADDRESS = 16
 } address_mode_t;
 
 typedef struct {

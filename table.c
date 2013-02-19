@@ -1,7 +1,4 @@
-#ifdef DEBUG
 #include <stdio.h>
-#endif
-
 #include <string.h>
 
 #include "table.h"
@@ -9,6 +6,8 @@
 #include "types.h"
 #include "as.h"
 
+/* all labels declared or defined 
+ * in a source file */
 static label_t labels[MAX_LABELS];
 static int free_label_index = 0;
 
@@ -20,12 +19,11 @@ void init_labels(void)
 int validate_labels(void)
 {
 	int i;
-	label_t *label;
 	int failed = 0;
 
 	for (i = 0; i < free_label_index; i++)
 	{
-		label = &labels[i];
+		label_t *label = &labels[i];
 		switch (label->type) {
 			case REGULAR: /* FALLTHROUGH */
 			case ENTRY: 
@@ -86,48 +84,3 @@ label_t* lookup_label(label_name_t name)
 	
 	return NULL;
 }
-
-#ifdef DEBUG
-void print_labels(void)
-{
-	int i;
-	label_t *label;
-
-	printf("labels:\n");
-
-	for (i = 0; i < free_label_index; i++) {
-		label = &labels[i];
-
-		printf("#%d ", i);
-		printf("name: %s ", label->name);
-		printf("type: ");
-		switch (label->type) {
-			case REGULAR:
-				printf("REGULAR ");
-				break;
-			case ENTRY:
-				printf("ENTRY ");
-				break;
-			case EXTERNAL:
-				printf("EXTERNAL ");
-				break;
-		}
-
-		printf("section: ");
-		switch (label->section) {
-			case CODE:
-				printf("CODE ");
-				break;
-			case DATA:
-				printf("DATA ");
-				break;
-		}
-
-		if (label->has_address) {
-			printf("address: %d", label->address);
-		}
-
-		printf("\n");
-	}
-}
-#endif

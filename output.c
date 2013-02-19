@@ -249,7 +249,7 @@ static void output_header(void)
 	fprintf(ob_output_file, "%u\t%u\n", convert(code_index, 4), convert(data_index, 4));
 }
 
-void output(const char *source_filename)
+int output(const char *source_filename)
 {
 	char obj_filename[MAX_FILENAME_LENGTH];
 
@@ -264,7 +264,7 @@ void output(const char *source_filename)
 	ob_output_file = fopen(obj_filename, "wt");
 	if (NULL == ob_output_file) {
 		perror("couldn't open obj file"); 
-		return;
+		return 1;
 	}
 
 	/* output all entry labels by looping on the labels table */
@@ -286,4 +286,6 @@ void output(const char *source_filename)
 		fclose(externals_output_file);
 		externals_output_file = NULL;
 	}
+
+	return 0;
 }

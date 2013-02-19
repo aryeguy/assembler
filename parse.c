@@ -1,16 +1,14 @@
+#include <stdlib.h> /* for strtol */
 #include <stdio.h> /* for fopen, fclose, fgets */
-#include <stdlib.h> /* for EXIT_SUCCESS */
 #include <string.h> /* for strncpy and strncat */
-#include <ctype.h> /* for isspace */
-#include <limits.h>
-#include <assert.h>
+#include <ctype.h> /* for isalpha and isalnum */
+#include <limits.h> /* for LONG_MIN and LONG_MAX */
+#include <assert.h> /* for assert */
 
 #include "consts.h"
 #include "types.h"
 #include "table.h"
 #include "parse.h"
-
-#define FLAG(x) (1 << x)
 
 full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 int full_instruction_index = 0;
@@ -30,72 +28,80 @@ static char *input_line_start = NULL;
 static char *input_filename = NULL;
 static unsigned int input_linenumber = 0;
 static instruction_t instructions[] = {
-	{"mov", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"mov", IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		2,
 		00},
-	{"cmp", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
-		FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"cmp", IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
+		IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		2,
 		01},
-	{"add", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS),
+	{"add", IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS,
 		2,
 		02},
-	{"sub", FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"sub", IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		2,
 		03},
-	{"lea", FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS),
+	{"lea", DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS,
 		2,
 		06},
-	{"not", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"not", NO_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		04},
-	{"clr", FLAG(NO_ADDRESS),
-	       	FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"clr", NO_ADDRESS,
+	       	DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		05},
-	{"inc", FLAG(NO_ADDRESS),
-	       	FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"inc", NO_ADDRESS,
+	       	DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		07},
-	{"dec", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"dec", NO_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		010},
-	{"jmp", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"jmp", NO_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		011},
-	{"bne", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"bne", NO_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		012},
-	{"red", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"red", NO_ADDRESS, 
+		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		013},
-	{"prn", FLAG(NO_ADDRESS), 
-		FLAG(IMMEDIATE_ADDRESS) | FLAG(DIRECT_ADDRESS) | FLAG(INDEX_ADDRESS) | FLAG(DIRECT_REGISTER_ADDRESS), 
+	{"prn", NO_ADDRESS, 
+		IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		1,
 		014},
-	{"jsr", FLAG(NO_ADDRESS), 
-		FLAG(DIRECT_ADDRESS), 
+	{"jsr", NO_ADDRESS, 
+		DIRECT_ADDRESS, 
 		1,
 		015},
-	{"rts", FLAG(NO_ADDRESS), 
-		FLAG(NO_ADDRESS), 
+	{"rts", NO_ADDRESS, 
+		NO_ADDRESS, 
 		0,
 		016},
-	{"stp", FLAG(NO_ADDRESS), 
-		FLAG(NO_ADDRESS), 
+	{"stp", NO_ADDRESS, 
+		NO_ADDRESS, 
 		0,
 		017},
 };
 
+/************************************************
+ * NAME: parse_error
+ * PARAMS: gripe - the error message 
+ * DESCRIPTION: output an error message based
+ *              on current parsed file, current
+ *              parsed line and current parsed
+ *              location on line 
+ ***********************************************/
 void parse_error(char *gripe)
 {
 	fprintf(stderr, "%s:%u:%u: error: %s\n",
@@ -105,18 +111,35 @@ void parse_error(char *gripe)
 		       	gripe);
 }
 
-/* implementation of isblank from C99 */
+/************************************************
+ * NAME: isblank
+ * PARAMS: c - checked character 
+ * RETURN VALUE: 1 if blank
+ * DESCRIPTION: check if a charcater is a blank 
+ *              character 
+ ***********************************************/
 static int isblank(char c)
 {
 	return c == ' ' || c == '\t';
 }
 
+/************************************************
+ * NAME: parse_whitespace
+ * DESCRIPTION: promote input_line to a nonblank
+ *              character
+ ***********************************************/
 static void parse_whitespace(void)
 {
 	while (isblank(*input_line++));
 	input_line--;
 }
 
+/************************************************
+ * NAME: parse_whitespace_must
+ * RETURN VALUE: 1 on error, 0 on success
+ * DESCRIPTION: parse all whitespace and report
+ * 		if there is no whitespace at all
+ ************************************************/
 static int parse_whitespace_must(void)
 {
 	if (!isblank(*input_line)) {
@@ -128,16 +151,31 @@ static int parse_whitespace_must(void)
 	return 0;
 }
 
+/************************************************
+ * NAME: is_comment
+ * RETURN VALUE: 1 if the current parsed line is
+ * 		 a comment, 0 otherwise
+ * DESCRIPTION: check if the current parsed line 
+ * 		is a comment by checking the first
+ * 		character 
+ ************************************************/
 static int is_comment(void)
 {
 	return input_line[0] == ';';
 }
 
+/************************************************
+ * NAME: is_empty
+ * RETURN VALUE: 1 if the current parsed line is
+ * 		 empty , 0 otherwise
+ * DESCRIPTION: an empty line a a line that 
+ * 		contains only blank characters 
+ ************************************************/
 static int is_empty(void)
 {
 	char *p;
 
-	for (p = input_line; *p != '\n'; p++) {
+	for (p = input_line; *p != '\n' && *p != '\0'; p++) {
 		if (!isblank(*p)) {
 			return 0;
 		}
@@ -268,7 +306,6 @@ static int install_label_defintion(label_section_t section)
 	}
 	l->has_address = 1;
 
-
 	return 0;
 }
 
@@ -379,11 +416,12 @@ static int parse_directive(void)
 	struct {
 		char name[MAX_DIRECTIVE_NAME_LENGTH];
 		int (*function)(void);
-	} directives[] = {{"data", parse_data_directive},
-			{"string", parse_string_directive},
-			{"entry", parse_entry_directive},
-			{"extern", parse_extern_directive},
-			{"\0", NULL}};
+	} directives[] = {
+		{"data", parse_data_directive},
+		{"string", parse_string_directive},
+		{"entry", parse_entry_directive},
+		{"extern", parse_extern_directive},
+			};
 	int i;
 
 	for (i = 0; sizeof(directives)/sizeof(directives[0]); i++) {
@@ -564,7 +602,7 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 
 	}
 
-	if (!(FLAG(operand->type) & available_address_modes)) {
+	if (!(operand->type & available_address_modes)) {
 		parse_error("address mode not allowed for this instruction");
 		return 1;
 	}
@@ -646,8 +684,6 @@ static int parse_instruction(void)
 
 static int parse_action_line(void)
 {
-	label_defined = 0;
-
 	if (parse_label_definition()) {
 		return 1;
 	}
@@ -656,8 +692,7 @@ static int parse_action_line(void)
 		if (parse_whitespace_must()) {
 			return 1;
 		}
-	}
-	else {
+	} else {
 		parse_whitespace();
 	}
 
@@ -669,9 +704,7 @@ static int parse_action_line(void)
 		if (parse_directive()) {
 			return 1;
 		}
-	}
-
-	else {
+	} else {
 		if (parse_instruction()) {
 			return 1;
 		}
@@ -682,6 +715,7 @@ static int parse_action_line(void)
 
 static int parse_line(char *line)
 {
+	label_defined = 0;
 	input_line = input_line_start = line;
 	if (is_comment() || is_empty()) {
 		return 0;
@@ -708,6 +742,7 @@ int parse_file(char *filename)
 		return 1;
 	}
 
+	/* for error reporting */
 	input_filename = filename;
 
 	/* initialized global variables for first pass */
@@ -720,28 +755,34 @@ int parse_file(char *filename)
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
+		/* TODO replace with |= ? */
 		if (parse_line(line)) {
 			failed = 1;
 		}
 	}
 
+	/* first pass failed so close the file
+	 * and return (no need to do a second pass) */
 	if (failed)
 	{
 		fclose(fp);
 		return 1;
 	}
 
+	/* rewind to the beginning of the file
+	 * note that rewind is not used on purpose */
 	if (fseek(fp, 0, SEEK_SET)) {
 		perror("input file rewind failed");
 		fclose(fp);
 	}
 
-	/* initialized global variables for second pass */
+	/* initialized global variables for second pass 
+	 * data index is not initialized on purpose */
 	pass = SECOND_PASS;
 	full_instruction_index = 0;
 	code_index = 0;
 
-	/* second pass, not expecting a failure (assert?) */
+	/* second pass */
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
