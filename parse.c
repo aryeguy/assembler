@@ -363,7 +363,7 @@ static int install_label_defintion(label_section_t section)
 	}
 	
 	l->section = section;
-	l->address = code_index ? section == CODE : data_index;
+	l->address = section == CODE ? code_index : data_index;
 	l->has_address = 1;
 
 	return 0;
@@ -788,10 +788,7 @@ int parse_file(char *filename)
 	for (input_linenumber = 1;
 	     fgets(line, MAX_LINE_LENGTH, fp);
 	     input_linenumber++) {
-		/* TODO replace with |= ? */
-		if (parse_line(line)) {
-			failed = 1;
-		}
+		failed |= parse_line(line);
 	}
 
 	/* first pass failed so close the file
