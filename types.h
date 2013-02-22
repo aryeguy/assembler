@@ -15,9 +15,9 @@ typedef enum {
 } label_type_t;
 
 typedef enum {
-	ABSOLUTE_LINKAGE,
-	RELOCATBLE_LINKAGE,
-	EXTERNAL_LINKAGE
+	ABSOLUTE_LINKAGE = 'a',
+	RELOCATBLE_LINKAGE = 'r',
+	EXTERNAL_LINKAGE = 'e'
 } linker_data_t;
 
 typedef struct {

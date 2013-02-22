@@ -112,6 +112,24 @@ void parse_error(char *gripe)
 }
 
 /************************************************
+ * NAME: parse_string
+ * PARAMS: s - the string to parse 
+ * DESCRIPTION: parse a string 
+ ***********************************************/
+static int parse_string(char *s)
+{
+	char gripe[MAX_LINE_LENGTH];
+	if (strncmp(input_line, s, strlen(s)) == 0) {
+		input_line += strlen(s);
+		return 0;
+	}
+
+	sprintf(gripe, "expected %s", s);
+	parse_error(gripe);
+	return 1;
+}
+
+/************************************************
  * NAME: isblank
  * PARAMS: c - checked character 
  * RETURN VALUE: 1 if blank
@@ -255,14 +273,7 @@ static int parse_label_definition(void)
 {
 	if (strchr(input_line, ':')) {
 		label_defined = 1;
-		if (parse_label(label_definition)) {
-			return 1;
-		}
-		
-		if (*input_line++ != ':') {
-			parse_error("expected :");
-			return 1;
-		}
+		return parse_label(label_definition) || parse_string(":");
 	}
 
 	return 0;
@@ -352,14 +363,7 @@ static int install_label_defintion(label_section_t section)
 	}
 	
 	l->section = section;
-	switch (section) {
-		case CODE:
-			l->address = code_index;
-			break;
-		case DATA:
-			l->address = data_index;
-			break;
-	}
+	l->address = code_index ? section == CODE : data_index;
 	l->has_address = 1;
 
 	return 0;
@@ -383,8 +387,8 @@ static int install_label_declaration(label_type_t type)
 		parse_error("label already declared");
 		return 1;
 	}
-	/* install the new label */
 	else {
+		/* install the new label */
 		if (install_label(label_declaration, &l)) {
 			return 1;
 		}
@@ -421,8 +425,7 @@ static int parse_data_directive(void)
 
 static int parse_string_directive(void)
 {
-	if (*input_line++ != '"') {
-		parse_error("expected \"");
+	if (parse_string("\"")) {
 		return 1;
 	}
 
@@ -432,16 +435,17 @@ static int parse_string_directive(void)
 
 	while (*input_line && *input_line != '"')
 	{
-		data_section[data_index++] = *input_line;
+		data_section[data_index] = *input_line;
+		data_index++;
 		input_line++;
 	}
 
-	if (*input_line++ != '"') {
-		parse_error("expected \"");
+	if (parse_string("\"")) {
 		return 1;
 	}
 
-	data_section[data_index++] = '\0';
+	data_section[data_index] = '\0';
+	data_index++;
 
 	return 0;
 }
@@ -482,8 +486,7 @@ static int parse_directive(void)
 
 	for (i = 0; sizeof(directives)/sizeof(directives[0]); i++) {
 	 	if (strncmp(input_line, directives[i].name, strlen(directives[i].name)) == 0) {
-			input_line += strlen(directives[i].name);
-			return parse_whitespace_must() || directives[i].function();
+			return parse_string(directives[i].name) || parse_whitespace_must() || directives[i].function();
 		}
 	}
 	
@@ -496,8 +499,7 @@ static int parse_instruction_comb(full_instruction_t *full_instruction)
 	full_instruction->type = 0;
 	full_instruction->comb = 0;
 
-	if (*input_line++ != '/') {
-		parse_error("expected /");
+	if (parse_string("/")) {
 		return 1;
 	}
 	if (*input_line == '0') {
@@ -507,29 +509,25 @@ static int parse_instruction_comb(full_instruction_t *full_instruction)
 		full_instruction->type = 1;
 		input_line++;
 
-		if (*input_line++ != '/') {
-			parse_error("expected /");
+		if (parse_string("/")) {
 			return 1;
 		}
 		if (*input_line == '0') {
-			input_line++;
 		} else if (*input_line == '1') {
-			input_line++;
-			full_instruction->comb += 1;
+			full_instruction->comb += 2;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
 		}
+		input_line++;
 
-		if (*input_line != '/') {
-			parse_error("expected /");
+		if (parse_string("/")) {
 			return 1;
 		}
-		input_line++;
 
 		if (*input_line == '0') {
 		} else if (*input_line == '1') {
-			full_instruction->comb += 2;
+			full_instruction->comb += 1;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
@@ -580,10 +578,7 @@ static int parse_instruction_operand_immediate(long *immediate)
 	/* skip # */
 	input_line++;
 
-	if (parse_number(immediate)) {
-		return 1;
-	}
-	return 0;
+	return parse_number(immediate);
 }
 
 static int parse_instruction_operand_register_direct(int *reg)
@@ -613,7 +608,9 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 		parse_whitespace();
 		if (*input_line == '{') {
 			operand->type = INDEX_ADDRESS;
-			input_line++;
+			if (parse_string("{")) {
+				return 1;
+			}
 			if (is_register_operand()) {
 				operand->index_type = REGISTER;
 				if (parse_register(&(operand->index.reg))) {
@@ -632,12 +629,9 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 				parse_error("invalid index addersing");
 				return 1;
 			}
-			if (*input_line++ != '}')
-			{
-				parse_error("expected }");
+			if (parse_string("}")) {
 				return 1;
 			}
-			return 0;
 		} else {
 			operand->type = DIRECT_ADDRESS;
 		}
@@ -668,17 +662,15 @@ static int parse_instruction_name(instruction_t **instruction)
 	}
 
 	*instruction = &instructions[i];
-	input_line += INSTRUCTION_NAME_LENGTH;
-	return 0;
+	return parse_string((*instruction)->name);
 }
 
 static int parse_instruction(void)
 {
-	full_instruction_t *full_instruction = &full_instructions[full_instruction_index++];
-	if (label_defined && pass == FIRST_PASS) {
-		if (install_label_defintion(CODE)) {
-			return 1;
-		}
+	full_instruction_t *full_instruction = &full_instructions[full_instruction_index];
+	full_instruction_index++;
+	if (label_defined && pass == FIRST_PASS && install_label_defintion(CODE)) {
+		return 1;
 	}
 
 	if (parse_instruction_name(&(full_instruction->instruction))) {
@@ -696,16 +688,17 @@ static int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instruction_operand(&(full_instruction->src_operand), full_instruction->instruction->src_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->src_operand),
+					       		full_instruction->instruction->src_address_modes)) {
 				return 1;
 			}
 			parse_whitespace();
-			if (*input_line++ != ',') {
-				parse_error("expected ','");
+			if (parse_string(",")) {
 				return 1;
 			}
 			parse_whitespace();
-			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->dest_operand), 
+							full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			break;
@@ -713,7 +706,8 @@ static int parse_instruction(void)
 			if (parse_whitespace_must()) {
 				return 1;
 			}
-			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
+			if (parse_instruction_operand(&(full_instruction->dest_operand), 
+						        full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
 			break;
@@ -740,8 +734,7 @@ static int parse_action_line(void)
 		if (pass == SECOND_PASS) {
 			return 0;
 		}
-		input_line++;
-		if (parse_directive()) {
+		if (parse_string(".") || parse_directive()) {
 			return 1;
 		}
 	} else {

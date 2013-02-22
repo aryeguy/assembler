@@ -27,7 +27,8 @@ unsigned int convert(unsigned int number, int base)
 	number &= 0xfffff; /* use only 20 bits of the number */
 
 	while (number) {
-		converted_number += pow(10, i++)*(number % base);
+		converted_number += pow(10, i)*(number % base);
+		i++;
 		number /= base;
 	}
 	return converted_number;
@@ -35,6 +36,7 @@ unsigned int convert(unsigned int number, int base)
 
 static void output_entry_label(label_t *label)
 {
+	/* open file for writing if not opened */
 	if (NULL == entries_output_file) {
 		char filename[MAX_FILENAME_LENGTH];
 
@@ -47,29 +49,25 @@ static void output_entry_label(label_t *label)
 		}
 	}
 	if (label->type == ENTRY) {
-		fprintf(entries_output_file, "%s\t%010u\n", label->name, convert(label->address + START_OFFSET + (label->section == DATA ? code_index : 0) , 4));
+		fprintf(entries_output_file, 
+			"%s\t%010u\n", 
+			label->name, 
+			convert(label->address + START_OFFSET + (label->section == DATA ? code_index : 0), 4));
 	}
 }
 
 static void output_code_line(int data, linker_data_t linker_data)
 {
-	fprintf(ob_output_file, "%04u\t%010u\t", convert(output_code_index++, 4), convert(data, 4));
-	switch (linker_data) {
-		case ABSOLUTE_LINKAGE:
-			fprintf(ob_output_file, "a");
-			break;
-		case RELOCATBLE_LINKAGE:
-			fprintf(ob_output_file, "r");
-			break;
-		case EXTERNAL_LINKAGE:
-			fprintf(ob_output_file, "e");
-			break;
-	}
-	fprintf(ob_output_file, "\n");
+	fprintf(ob_output_file, 
+		"%04u\t%010u\t%c\n", 
+		convert(output_code_index++, 4), 
+		convert(data, 4), 
+		linker_data);
 }
 
 static void output_external_label_use(label_t *label)
 {
+	/* open file for writing if not opened */
 	if (NULL == externals_output_file) {
 		char filename[MAX_FILENAME_LENGTH];
 
@@ -94,14 +92,8 @@ static void output_operand_label(char *name)
 		 * that this line needs external linkage */
 		output_code_line(0, EXTERNAL_LINKAGE);
 	} else {
-		switch (label->section) {
-			case CODE:
-				output_code_line(label->address + START_OFFSET, RELOCATBLE_LINKAGE);
-				break;
-			case DATA:
-				output_code_line(label->address + code_index + START_OFFSET, RELOCATBLE_LINKAGE);
-				break;
-		}
+		output_code_line(label->address + START_OFFSET + (label->section == DATA ? code_index : 0), 
+				RELOCATBLE_LINKAGE);
 	}
 }
 
@@ -123,7 +115,12 @@ static void output_operand(operand_t *operand)
 				case LABEL:
 					output_operand_label(operand->index.label);
 					break;
+				case REGISTER:
+					break;
 			}
+			break;
+		case NO_ADDRESS:
+		case DIRECT_REGISTER_ADDRESS: /* FALLTHROUGH */
 			break;
 	}
 }
