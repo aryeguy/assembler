@@ -184,44 +184,70 @@ static int is_empty(void)
 	return 1;
 }
 
+/************************************************
+ * NAME: parse_label
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: name - parsed label
+ * DESCRIPTION: parse a label and return it in 
+ * 		the name output parameter 
+ ************************************************/
 static int parse_label(label_name_t name)
 {
+	/* used for getting the size of the length */
 	char *label_begin = input_line;
+	int label_length;
 
 	if (!isalpha(*input_line)) {
 		parse_error("label must start with alphabetic character");
 		return 1;
 	}
 
-	while (isalnum(*input_line++));
-	input_line--;
+	/* skip all alphanumberic characters */
+	while (isalnum(*input_line)) {
+		input_line++;
+	}
 
-	if (input_line - label_begin > MAX_LABEL_LENGTH) {
+	label_length = input_line - label_begin;
+	if (label_length > MAX_LABEL_LENGTH) {
 		parse_error("label too long");
 		return 1;
 	}
 
-	strncpy(name, label_begin, input_line - label_begin);
-	name[input_line - label_begin] = '\0';
+	/* copy the parsed string to the out parameter */
+	strncpy(name, label_begin, label_length);
+	/* put null at the end of the string */
+	name[label_length] = '\0';
 
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_label_use
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: name - parsed label
+ * DESCRIPTION: parse a label and check if it's
+ * 		installed on the second pass 
+ ************************************************/
 static int parse_label_use(label_name_t name)
 {
 	if (parse_label(name)) {
 		return 1;
 	}
-	if (pass == SECOND_PASS) {
-		if (!lookup_label(name)) {
-			parse_error("label that isn't defined is used");
-			return 1;
-		}
+
+	if (pass == SECOND_PASS && !lookup_label(name)) {
+		parse_error("label that isn't defined is used");
+		return 1;
 	}
 
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_label_definition
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse a label and return it in 
+ * 		the name output parameter 
+ ************************************************/
 static int parse_label_definition(void)
 {
 	if (strchr(input_line, ':')) {
@@ -239,11 +265,23 @@ static int parse_label_definition(void)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_label_declaration
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse the label declration 
+ *              (global variable) 
+ ************************************************/
 static int parse_label_declaration(void)
 {
 	return parse_label(label_declaration);
 }
 
+/************************************************
+ * NAME: parse_number
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: x - number output parameter
+ * DESCRIPTION: parse an integer
+ ************************************************/
 static int parse_number(long *x)
 {
 	char *p;
@@ -259,6 +297,11 @@ static int parse_number(long *x)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_data_number
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse an integer into data section
+ ************************************************/
 static int parse_data_number(void)
 {
 	long int x;
@@ -267,18 +310,28 @@ static int parse_data_number(void)
 		return 1;
 	}
 
-	data_section[data_index++] = x;
+	data_section[data_index] = x;
+	data_index++;
 	return 0;
 }
 
+/************************************************
+ * NAME: install_label_defintion
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: section - the section associated with 
+ * 		     the label to install
+ * DESCRIPTION: install a label defintion
+ ************************************************/
 static int install_label_defintion(label_section_t section)
 {
 	label_t *l;
 
+	/* look if the label is already installed  */
 	l = lookup_label(label_definition);
 	if (l != NULL) {
 		if (l->type == EXTERNAL) {
-			parse_error("label declared as external cannot be defined");
+			parse_error("label declared as external " \
+			            "cannot be defined");
 			return 1;
 		}
 		else if (l->has_address) {
@@ -309,17 +362,25 @@ static int install_label_defintion(label_section_t section)
 	return 0;
 }
 
+/************************************************
+ * NAME: install_label_declaration
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: type - the type of the label to be
+ * 		  installed
+ * DESCRIPTION: install a label declration
+ ************************************************/
 static int install_label_declaration(label_type_t type)
 {
 	label_t *l;
 
+	/* check if the label is already installed 
+	 * and if so, check if it was declared before */
 	l = lookup_label(label_declaration);
-	if (l != NULL) {
-		if (l->type != REGULAR) {
-			parse_error("label already declared");
-			return 1;
-		}
+	if (l != NULL && l->type != REGULAR) {
+		parse_error("label already declared");
+		return 1;
 	}
+	/* install the new label */
 	else {
 		if (install_label(label_declaration, &l)) {
 			return 1;
@@ -469,20 +530,21 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 			return 1;
 		}
 
-		if (*input_line++ != '/') {
+		if (*input_line != '/') {
 			parse_error("expected /");
 			return 1;
 		}
+		input_line++;
+
 		if (*input_line == '0') {
-			input_line++;
 			dest_operand_right = 0;
 		} else if (*input_line == '1') {
-			input_line++;
 			dest_operand_right = 1;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
 		}
+		input_line++;
 	} else {
 		parse_error("expected 0 or 1");
 		return 1;
@@ -505,12 +567,14 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 
 static int is_register_operand(void)
 {
-	return *input_line == 'r' && input_line[1] >= '0' && input_line[1] <= '7';
+	return input_line[0] == 'r' && \
+		input_line[1] >= '0' && \
+		input_line[1] <= '7';
 }
 
 static int is_immediate_operand(void)
 {
-	return *input_line == '#';
+	return input_line[0] == '#';
 }
 
 static int is_direct_register_operand(void)
