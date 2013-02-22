@@ -3,9 +3,6 @@
 
 #include "consts.h"
 
-typedef char label_name_t[MAX_LABEL_LENGTH];
-typedef unsigned int address_t;
-
 typedef enum {
 	CODE,
 	DATA
@@ -23,19 +20,11 @@ typedef enum {
 	EXTERNAL_LINKAGE
 } linker_data_t;
 
-typedef enum {
-	FULL_COMB,
-	LEFT_SOURCE_LEFT_DEST_COMB,
-	RIGHT_SOURCE_LEFT_DEST_COMB,
-	LEFT_SOURCE_RIGHT_DEST_COMB,
-	RIGHT_SOURCE_RIGHT_DEST_COMB
-} instruction_comb_t;
-
 typedef struct {
 	label_section_t section;
 	label_type_t type;
-	label_name_t name;
-	address_t address;
+	char name[MAX_LABEL_LENGTH];
+	int address;
 	int has_address;
 } label_t;
 
@@ -52,7 +41,7 @@ typedef struct {
 	union {
 		long immediate;
 		int reg;
-		label_name_t label;
+		char label[MAX_LABEL_LENGTH];
 	} value;
 	enum {
 		IMMEDIATE,
@@ -62,7 +51,7 @@ typedef struct {
 	union {
 		long immediate;
 		int reg;
-		label_name_t label;
+		char label[MAX_LABEL_LENGTH];
 	} index;
 } operand_t;
 
@@ -76,7 +65,8 @@ typedef struct {
 
 typedef struct {
 	instruction_t *instruction;
-	instruction_comb_t comb;
+	int type;
+	int comb;
 	operand_t src_operand;
 	operand_t dest_operand;
 } full_instruction_t;

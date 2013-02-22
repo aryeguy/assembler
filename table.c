@@ -53,7 +53,7 @@ void loop_labels(void (*fun)(label_t *))
 	}
 }
 
-int install_label(label_name_t name, label_t **label)
+int install_label(char *name, label_t **label)
 {
 	if (free_label_index == MAX_LABELS) {
 		parse_error("too much labels defined");
@@ -67,12 +67,12 @@ int install_label(label_name_t name, label_t **label)
 	}
 
 	*label = &labels[free_label_index++];
-	memmove((*label)->name, name, sizeof(label_name_t));
+	memmove((*label)->name, name, MAX_LABEL_LENGTH);
 
 	return 0;
 }
 
-label_t* lookup_label(label_name_t name)
+label_t* lookup_label(char *name)
 {
 	int i;
 	

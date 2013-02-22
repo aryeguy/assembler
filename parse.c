@@ -21,8 +21,8 @@ static enum {
 	FIRST_PASS,
 	SECOND_PASS
 } pass;
-static label_name_t label_definition;
-static label_name_t label_declaration;
+static char label_definition[MAX_LABEL_LENGTH];
+static char label_declaration[MAX_LABEL_LENGTH];
 static char *input_line = NULL;
 static char *input_line_start = NULL;
 static char *input_filename = NULL;
@@ -125,13 +125,17 @@ static int isblank(char c)
 
 /************************************************
  * NAME: parse_whitespace
+ * RETURN VALUE: 0 always (compatible parse 
+ * 	 	 function return value)
  * DESCRIPTION: promote input_line to a nonblank
  *              character
  ***********************************************/
-static void parse_whitespace(void)
+static int parse_whitespace(void)
 {
-	while (isblank(*input_line++));
-	input_line--;
+	while (isblank(*input_line)) {
+		input_line++;
+	}
+	return 0;
 }
 
 /************************************************
@@ -147,8 +151,7 @@ static int parse_whitespace_must(void)
 		return 1;
 	}
 
-	parse_whitespace();
-	return 0;
+	return parse_whitespace();
 }
 
 /************************************************
@@ -191,7 +194,7 @@ static int is_empty(void)
  * DESCRIPTION: parse a label and return it in 
  * 		the name output parameter 
  ************************************************/
-static int parse_label(label_name_t name)
+static int parse_label(char *name)
 {
 	/* used for getting the size of the length */
 	char *label_begin = input_line;
@@ -228,7 +231,7 @@ static int parse_label(label_name_t name)
  * DESCRIPTION: parse a label and check if it's
  * 		installed on the second pass 
  ************************************************/
-static int parse_label_use(label_name_t name)
+static int parse_label_use(char *name)
 {
 	if (parse_label(name)) {
 		return 1;
@@ -406,11 +409,11 @@ static int parse_data_directive(void)
 	}
 
 	while (strchr(input_line, ',')) {
-		parse_whitespace();
-		if (parse_data_number()) {
+		if (parse_whitespace() || \
+		    parse_data_number() || \
+		    parse_whitespace()) {
 			return 1;
 		}
-		parse_whitespace();
 	}
 
 	return 0;
@@ -445,26 +448,18 @@ static int parse_string_directive(void)
 
 static int parse_entry_directive(void)
 {
-	if (parse_label_declaration()) {
-		return 1;
-	}
-
-	return install_label_declaration(ENTRY);
+	return parse_label_declaration() || install_label_declaration(ENTRY);
 }
 
 static int parse_extern_directive(void)
 {
-	if (parse_label_declaration()) {
-		return 1;
-	}
-
-	return install_label_declaration(EXTERNAL);
+	return parse_label_declaration() || install_label_declaration(EXTERNAL);
 }
 
 static int parse_end_of_line(void)
 {
 	parse_whitespace();
-	if (*input_line && *input_line != '\n') {
+	if (*input_line != '\0' && *input_line != '\n') {
 		parse_error("garbage in end of line");
 		return 1;
 	}
@@ -488,10 +483,7 @@ static int parse_directive(void)
 	for (i = 0; sizeof(directives)/sizeof(directives[0]); i++) {
 	 	if (strncmp(input_line, directives[i].name, strlen(directives[i].name)) == 0) {
 			input_line += strlen(directives[i].name);
-			if (parse_whitespace_must()) {
-				return 1;
-			}
-			return directives[i].function();
+			return parse_whitespace_must() || directives[i].function();
 		}
 	}
 	
@@ -499,10 +491,10 @@ static int parse_directive(void)
 	return 1;
 }
 
-static int parse_instruction_comb(instruction_comb_t *combp)
+static int parse_instruction_comb(full_instruction_t *full_instruction)
 {
-	int source_operand_right;
-	int dest_operand_right;
+	full_instruction->type = 0;
+	full_instruction->comb = 0;
 
 	if (*input_line++ != '/') {
 		parse_error("expected /");
@@ -510,9 +502,9 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 	}
 	if (*input_line == '0') {
 		input_line++;
-		*combp = FULL_COMB;
 		return 0;
 	} else if (*input_line == '1') {
+		full_instruction->type = 1;
 		input_line++;
 
 		if (*input_line++ != '/') {
@@ -521,10 +513,9 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 		}
 		if (*input_line == '0') {
 			input_line++;
-			source_operand_right = 0;
 		} else if (*input_line == '1') {
 			input_line++;
-			source_operand_right = 0;
+			full_instruction->comb += 1;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
@@ -537,9 +528,8 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 		input_line++;
 
 		if (*input_line == '0') {
-			dest_operand_right = 0;
 		} else if (*input_line == '1') {
-			dest_operand_right = 1;
+			full_instruction->comb += 2;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
@@ -550,18 +540,6 @@ static int parse_instruction_comb(instruction_comb_t *combp)
 		return 1;
 	}
 
-	if (source_operand_right && dest_operand_right) {
-		*combp = RIGHT_SOURCE_RIGHT_DEST_COMB;
-	}
-	else if (source_operand_right) {
-		*combp = RIGHT_SOURCE_LEFT_DEST_COMB;
-	}
-	else if (dest_operand_right) {
-		*combp = LEFT_SOURCE_RIGHT_DEST_COMB;
-	}
-	else {
-		*combp = LEFT_SOURCE_LEFT_DEST_COMB;
-	}
 	return 0;
 }
 
@@ -707,7 +685,7 @@ static int parse_instruction(void)
 		return 1;
 	}
 
-	if (parse_instruction_comb(&(full_instruction->comb))) {
+	if (parse_instruction_comb(full_instruction)) {
 		return 1;
 	}
 
@@ -738,8 +716,6 @@ static int parse_instruction(void)
 			if (parse_instruction_operand(&(full_instruction->dest_operand), full_instruction->instruction->dest_address_modes)) {
 				return 1;
 			}
-			break;
-		case 0:
 			break;
 	}
 
