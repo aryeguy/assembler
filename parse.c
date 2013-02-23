@@ -204,7 +204,7 @@ static int is_comment(void)
  * NAME: is_empty
  * RETURN VALUE: 1 if the current parsed line is
  * 		 empty , 0 otherwise
- * DESCRIPTION: an empty line a a line that 
+ * DESCRIPTION: an empty line is a line that 
  * 		contains only blank characters 
  ************************************************/
 static int is_empty(void)
@@ -230,8 +230,8 @@ static int is_empty(void)
 static int parse_label(char *name)
 {
 	/* used for getting the size of the length */
+	int label_length = 0;
 	char *label_begin = input_line;
-	int label_length;
 
 	if (!isalpha(*input_line)) {
 		parse_error("label must start with alphabetic character");
@@ -241,9 +241,9 @@ static int parse_label(char *name)
 	/* skip all alphanumberic characters */
 	while (isalnum(*input_line)) {
 		input_line++;
+		label_length++;
 	}
 
-	label_length = input_line - label_begin;
 	if (label_length > MAX_LABEL_LENGTH) {
 		parse_error("label too long");
 		return 1;
@@ -362,8 +362,7 @@ static int install_label_defintion(label_section_t section)
 			parse_error("label declared as external " \
 			            "cannot be defined");
 			return 1;
-		}
-		else if (l->has_address) {
+		} else if (l->has_address) {
 			parse_error("label already defined");
 			return 1;
 		}
@@ -874,8 +873,7 @@ static int parse_action_line(void)
 		/* skip directive parsing on second pass */
 		if (pass == SECOND_PASS) {
 			return 0;
-		}
-		if (parse_string(".") || parse_directive()) {
+		} else if (parse_string(".") || parse_directive()) {
 			return 1;
 		}
 	} else {
@@ -898,7 +896,7 @@ static int parse_action_line(void)
  * ************************************************/
 static int parse_line(char *line)
 {
-	/* zero globals corresponding to a single 
+	/* init global variables corresponding to a single 
 	 * line parse */
 	label_defined = 0;
 	input_line = input_line_start = line;
@@ -960,7 +958,7 @@ int parse_file(char *filename)
 	}
 
 	/* rewind to the beginning of the file
-	 * note that rewind is not used on purpose */
+	 * note that rewind (from stdlib) is not used on purpose */
 	if (fseek(fp, 0, SEEK_SET)) {
 		perror("input file rewind failed");
 		fclose(fp);

@@ -84,7 +84,7 @@ int install_label(char *name, label_t **label)
 {
 	/* check that there is a free space for the label */
 	if (free_label_index == MAX_LABELS) {
-		parse_error("too much labels defined");
+		parse_error("too many labels defined");
 		return 1;
 	}
 
@@ -112,7 +112,7 @@ label_t* lookup_label(char *name)
 {
 	int i;
 	
-	for (i = 0; i<free_label_index; i++) {
+	for (i = 0; i < free_label_index; i++) {
 		if (strncmp(labels[i].name, name, sizeof(name)) == 0) {
 			return &labels[i];
 		}

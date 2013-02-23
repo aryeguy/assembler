@@ -257,11 +257,9 @@ static void output_code(void)
 		full_instruction = &full_instructions[i];
 		output_instruction(*full_instruction);
 		switch (full_instruction->instruction->num_opernads) {
-			case 1:
-				output_operand(&full_instruction->dest_operand);
-				break;
 			case 2:
 				output_operand(&full_instruction->src_operand);
+			case 1:
 				output_operand(&full_instruction->dest_operand);
 				break;
 		}
