@@ -7,12 +7,15 @@
 #include "consts.h"
 #include "table.h"
 
+/* global variables declared in parse.c that are used
+ * for output */
 extern int code_index;
 extern int data_index;
 extern char data_section[DATA_SECTION_MAX_LENGTH];
 extern full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 extern int full_instruction_index;
 
+/* internal global variables */
 static FILE *ob_output_file;
 static FILE *entries_output_file;
 static FILE *externals_output_file;
@@ -214,8 +217,8 @@ static void output_instruction(full_instruction_t full_instruction)
 	{
 		assembled_instruction += full_instruction.src_operand.index.reg << SRC_REGISTER_OFFSET;
 	}
-
 	assembled_instruction += encode_address_mode(full_instruction.src_operand.type) << SRC_ADDRESS_MODE_OFFSET;
+
 	assembled_instruction += full_instruction.instruction->opcode << OPCODE_OFFSET;
 	assembled_instruction += full_instruction.type << TYPE_OFFSET;
 
@@ -285,6 +288,8 @@ static void output_header(void)
  * DESCRIPTION:  assemble instructions and output
  * 		 all parsed data to ob ext and 
  * 		 ent files 
+ * ASSUMPTIONS: using the global variables from
+ * 		parse.c
  ***********************************************/
 int output(const char *source_filename)
 {
@@ -312,7 +317,6 @@ int output(const char *source_filename)
 
 	/* output all entry labels by looping on the labels table */
 	loop_labels(output_entry_label);
-
 
 	/* close the files if they were opened */
 	if (entries_output_file) {
