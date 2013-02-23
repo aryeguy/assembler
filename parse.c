@@ -825,39 +825,25 @@ static int parse_instruction(void)
 		return 1;
 	}
 
-
+	code_index++;
 	/* parse instruction operands */
 	switch (full_instruction->instruction->num_opernads) {
 		case 2:
-			if (parse_whitespace_must()) {
-				return 1;
-			}
-			if (parse_instruction_operand(&(full_instruction->src_operand),
-					       		full_instruction->instruction->src_address_modes)) {
-				return 1;
-			}
-			parse_whitespace();
-			if (parse_string(",")) {
-				return 1;
-			}
-			parse_whitespace();
-			if (parse_instruction_operand(&(full_instruction->dest_operand), 
-							full_instruction->instruction->dest_address_modes)) {
-				return 1;
-			}
+			return parse_whitespace_must() || \
+			       parse_instruction_operand(&(full_instruction->src_operand),
+					       		full_instruction->instruction->src_address_modes) || \
+			       parse_whitespace() || \
+			       parse_string(",") || \
+			       parse_whitespace() || \
+			       parse_instruction_operand(&(full_instruction->dest_operand), 
+							full_instruction->instruction->dest_address_modes);
 			break;
 		case 1: 
-			if (parse_whitespace_must()) {
-				return 1;
-			}
-			if (parse_instruction_operand(&(full_instruction->dest_operand), 
-						        full_instruction->instruction->dest_address_modes)) {
-				return 1;
-			}
-			break;
+			return parse_whitespace_must() || \
+			       parse_instruction_operand(&(full_instruction->dest_operand), 
+						        full_instruction->instruction->dest_address_modes);
 	}
 
-	code_index++;
 	return 0;
 }
 
