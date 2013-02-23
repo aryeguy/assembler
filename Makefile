@@ -1,4 +1,4 @@
-CFLAGS = -pedantic -ansi -Wall -Werror -ggdb -DDEBUG --coverage
+CFLAGS = -pedantic -ansi -Wall -Werror -g --coverage
 LDLIBS = -lgcov -lm
 
 HEADERS = consts.h types.h as.h table.h output.h parse.h

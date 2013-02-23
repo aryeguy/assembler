@@ -837,7 +837,6 @@ static int parse_instruction(void)
 			       parse_whitespace() || \
 			       parse_instruction_operand(&(full_instruction->dest_operand), 
 							full_instruction->instruction->dest_address_modes);
-			break;
 		case 1: 
 			return parse_whitespace_must() || \
 			       parse_instruction_operand(&(full_instruction->dest_operand), 
