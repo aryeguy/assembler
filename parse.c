@@ -3,30 +3,33 @@
 #include <string.h> /* for strncpy and strncat */
 #include <ctype.h> /* for isalpha and isalnum */
 #include <limits.h> /* for LONG_MIN and LONG_MAX */
-#include <assert.h> /* for assert */
 
 #include "consts.h"
 #include "types.h"
 #include "table.h"
 #include "parse.h"
 
+/* gloabl variables that the parsed file is stored in
+ * used by the output function in output.c */
 full_instruction_t full_instructions[CODE_SECTION_MAX_LENGTH];
 int full_instruction_index = 0;
 char data_section[DATA_SECTION_MAX_LENGTH];
 unsigned int data_index = 0;
 unsigned int code_index = 0;
 
-static int label_defined = 0;
+/* global variables used internaly for parsing */
+static int label_defined; 
 static enum {
 	FIRST_PASS,
 	SECOND_PASS
-} pass;
+} pass; /* parser pass number */
 static char label_definition[MAX_LABEL_LENGTH];
 static char label_declaration[MAX_LABEL_LENGTH];
-static char *input_line = NULL;
-static char *input_line_start = NULL;
-static char *input_filename = NULL;
-static unsigned int input_linenumber = 0;
+static char *input_line = NULL; /* the current parsed line */
+static char *input_line_start = NULL; /* the current parsed line start */
+static char *input_filename = NULL; /* used for errors */
+static unsigned int input_linenumber = 0; /* used for errors */
+/* available instructions */
 static instruction_t instructions[] = {
 	{"mov", IMMEDIATE_ADDRESS | DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
 		DIRECT_ADDRESS | INDEX_ADDRESS | DIRECT_REGISTER_ADDRESS, 
@@ -93,6 +96,17 @@ static instruction_t instructions[] = {
 		0,
 		017},
 };
+
+/* =============================================
+ * =============================================
+ * Note: all parsing function start with parse_
+ * and have the same basic structure: on error 
+ * they return 1 so logical operators where used
+ * to simplify parsing this way:
+ * || - means that there was no error next parsing
+ * function should be called 
+ * ==============================================
+ * ============================================*/
 
 /************************************************
  * NAME: parse_error
@@ -402,18 +416,28 @@ static int install_label_declaration(label_type_t type)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_data_directive
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse a data directive 
+ ************************************************/
 static int parse_data_directive(void)
 {
+	/* if a label is defined install it */
 	if (label_defined && install_label_defintion(DATA)) {
 		return 1;
 	}
 	
+	/* parse at least one number */
 	if (parse_data_number()) {
 		return 1;
 	}
 
+	/* parse the rest of the numbers */
 	while (strchr(input_line, ',')) {
 		if (parse_whitespace() || \
+		    parse_string(",") || \
+		    parse_whitespace() || \
 		    parse_data_number() || \
 		    parse_whitespace()) {
 			return 1;
@@ -423,16 +447,24 @@ static int parse_data_directive(void)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_string_directive
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse a string directive 
+ ************************************************/
 static int parse_string_directive(void)
 {
+	/* a string starts with " */
 	if (parse_string("\"")) {
 		return 1;
 	}
 
+	/* install the label if defined  */
 	if (label_defined && install_label_defintion(DATA)) {
 		return 1;
 	}
 
+	/* parse all chaacters until " */
 	while (*input_line && *input_line != '"')
 	{
 		data_section[data_index] = *input_line;
@@ -440,26 +472,45 @@ static int parse_string_directive(void)
 		input_line++;
 	}
 
+	/* expect a closing " */
 	if (parse_string("\"")) {
 		return 1;
 	}
 
+	/* close the string */
 	data_section[data_index] = '\0';
+	/* for last byte */
 	data_index++;
 
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_entry_directive
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse an entry directive 
+ ************************************************/
 static int parse_entry_directive(void)
 {
 	return parse_label_declaration() || install_label_declaration(ENTRY);
 }
 
+/************************************************
+ * NAME: parse_extern_directive
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse an extern directive 
+ ************************************************/
 static int parse_extern_directive(void)
 {
 	return parse_label_declaration() || install_label_declaration(EXTERNAL);
 }
 
+/************************************************
+ * NAME: parse_end_of_line
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse NULL or newline at the end 
+ * 		at the end of the line 
+ ************************************************/
 static int parse_end_of_line(void)
 {
 	parse_whitespace();
@@ -471,6 +522,11 @@ static int parse_end_of_line(void)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_directive
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse a directive  
+ ************************************************/
 static int parse_directive(void)
 {
 	struct {
@@ -484,16 +540,27 @@ static int parse_directive(void)
 			};
 	int i;
 
+	/* try to find a matching directive and if so run it's parsing function */
 	for (i = 0; sizeof(directives)/sizeof(directives[0]); i++) {
 	 	if (strncmp(input_line, directives[i].name, strlen(directives[i].name)) == 0) {
 			return parse_string(directives[i].name) || parse_whitespace_must() || directives[i].function();
 		}
 	}
 	
+	/* if flow reaches here no directive was found */
 	parse_error("no such directive");
 	return 1;
 }
 
+/************************************************
+ * NAME: parse_instruction_comb
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: full_instruction - the instrcution 
+ *                            fill the comb and
+ *                            type value at
+ * DESCRIPTION: parse the comb value after the
+ * 		instruction   
+ ************************************************/
 static int parse_instruction_comb(full_instruction_t *full_instruction)
 {
 	full_instruction->type = 0;
@@ -503,36 +570,48 @@ static int parse_instruction_comb(full_instruction_t *full_instruction)
 		return 1;
 	}
 	if (*input_line == '0') {
-		input_line++;
-		return 0;
+		return parse_string("0");
 	} else if (*input_line == '1') {
 		full_instruction->type = 1;
-		input_line++;
+		if (parse_string("1")) {
+			return 1;
+		}
 
 		if (parse_string("/")) {
 			return 1;
 		}
+
 		if (*input_line == '0') {
+			if (parse_string("0")) {
+				return 1;
+			}
 		} else if (*input_line == '1') {
+			if (parse_string("1")) {
+				return 1;
+			}
 			full_instruction->comb += 2;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
 		}
-		input_line++;
 
 		if (parse_string("/")) {
 			return 1;
 		}
 
 		if (*input_line == '0') {
+			if (parse_string("0")) {
+				return 1;
+			}
 		} else if (*input_line == '1') {
+			if (parse_string("1")) {
+				return 1;
+			}
 			full_instruction->comb += 1;
 		} else {
 			parse_error("expected 0 or 1");
 			return 1;
 		}
-		input_line++;
 	} else {
 		parse_error("expected 0 or 1");
 		return 1;
@@ -541,6 +620,11 @@ static int parse_instruction_comb(full_instruction_t *full_instruction)
 	return 0;
 }
 
+/************************************************
+ * NAME: is_register_operand
+ * RETURN VALUE: is register operand
+ * DESCRIPTION: check if parsing a register operand 
+ * ************************************************/
 static int is_register_operand(void)
 {
 	return input_line[0] == 'r' && \
@@ -548,21 +632,38 @@ static int is_register_operand(void)
 		input_line[1] <= '7';
 }
 
+/************************************************
+ * NAME: is_immediate_operand
+ * RETURN VALUE: is immediate operand
+ * DESCRIPTION: check if parsing an immediate operand 
+ * ************************************************/
 static int is_immediate_operand(void)
 {
 	return input_line[0] == '#';
 }
 
+/************************************************
+ * NAME: is_direct_register_operand
+ * RETURN VALUE: is a direct register operand
+ * DESCRIPTION: check if parsing a direct register 
+ * 		operand 
+ * ************************************************/
 static int is_direct_register_operand(void)
 {
 	return is_register_operand();
 }
 
+/************************************************
+ * NAME: parse_register
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: reg - a pointer to the register operand
+ * DESCRIPTION: parse a register operand 
+ * ************************************************/
 static int parse_register(int *reg)
 {
-	assert(*input_line == 'r');
-	/* skip r */
-	input_line++;
+	if (parse_string("r")) {
+		return 1;
+	}
 
 	*reg = *input_line++ - '0';
 	if (*reg < 0 || *reg > 7) {
@@ -572,56 +673,82 @@ static int parse_register(int *reg)
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_instruction_operand_immediate
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: immediate - a pointer to the immediate 
+ * 		       operand
+ * DESCRIPTION: parse an immediate operand 
+ * ************************************************/
 static int parse_instruction_operand_immediate(long *immediate)
 {
-	assert(*input_line == '#');
-	/* skip # */
-	input_line++;
-
-	return parse_number(immediate);
+	return parse_string("#") || parse_number(immediate);
 }
 
+/************************************************
+ * NAME: parse_instruction_operand_register_direct
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: reg - a pointer to the register operand
+ * DESCRIPTION: parse a direct register operand 
+ * ************************************************/
 static int parse_instruction_operand_register_direct(int *reg)
 {
 	return parse_register(reg);
 }
 
+/************************************************
+ * NAME: parse_instruction_operand
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: operand - a pointer to the operand to
+ * 		     to be parsed
+ * 	   available_address_modes - the available 
+ * 	                             address modes 
+ * DESCRIPTION: parse an operand  
+ * ************************************************/
 static int parse_instruction_operand(operand_t *operand, int available_address_modes)
 {
+	/* check for immediate operand */
 	if (is_immediate_operand()) {
 		code_index++;
 		operand->type = IMMEDIATE_ADDRESS;
 		if (parse_instruction_operand_immediate(&(operand->value.immediate))) {
 			return 1;
 		}
+	/* check for direct register operand */
 	} else if (is_direct_register_operand()) {
 		operand->type = DIRECT_REGISTER_ADDRESS;
 		if (parse_instruction_operand_register_direct(&(operand->value.reg))) {
 			return 1;
 		}
 	}
+	/* check for direct or index operand */
 	else {
+		/* parse the label */
 		code_index++;
 		if (parse_label_use(operand->value.label)) {
 			return 1;
 		}
 		parse_whitespace();
+		/* check for index operand */
 		if (*input_line == '{') {
 			operand->type = INDEX_ADDRESS;
 			if (parse_string("{")) {
 				return 1;
 			}
+			/* check for index register operand */
 			if (is_register_operand()) {
 				operand->index_type = REGISTER;
 				if (parse_register(&(operand->index.reg))) {
 					return 1;
 				}
+			/* check for index immediate operand */
 			} else if (isdigit(*input_line) || *input_line == '-' || *input_line == '+') {
 				operand->index_type = IMMEDIATE;
 				code_index++;
 				if (parse_number(&(operand->index.immediate))) {
 					return 1;
 				}
+			/* index direct operand */
 			} else if (!parse_label_use(operand->index.label)) {
 				operand->index_type = LABEL;
 				code_index++;
@@ -638,6 +765,7 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 
 	}
 
+	/* check if the address mode is available */
 	if (!(operand->type & available_address_modes)) {
 		parse_error("address mode not allowed for this instruction");
 		return 1;
@@ -645,44 +773,59 @@ static int parse_instruction_operand(operand_t *operand, int available_address_m
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_instruction_name
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: instruction - a pointer to the parsed 
+ * 			 instruction  
+ * DESCRIPTION: parse the instruction name 
+ * ************************************************/
 static int parse_instruction_name(instruction_t **instruction)
 {
 	int i;
 
 	for (i = 0; i < sizeof(instructions)/sizeof(instructions[0]); i++) {
 		if (strncmp(input_line, instructions[i].name, INSTRUCTION_NAME_LENGTH) == 0) {
-			break;
+			*instruction = &instructions[i];
+			return parse_string((*instruction)->name);
 		}
 	}
 
 	/* instruction not found */
-	if (i == sizeof(instructions)/sizeof(instructions[0])) {
-		parse_error("invalid instruction");
-		return 1;
-	}
+	parse_error("invalid instruction");
+	return 1;
 
-	*instruction = &instructions[i];
-	return parse_string((*instruction)->name);
 }
 
+/************************************************
+ * NAME: parse_instruction
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse an instruction
+ *************************************************/
 static int parse_instruction(void)
 {
+	/* get an instruction to hold parseed instruction */
 	full_instruction_t *full_instruction = &full_instructions[full_instruction_index];
 	full_instruction_index++;
+
+
+	/* install label if on first pass */
 	if (label_defined && pass == FIRST_PASS && install_label_defintion(CODE)) {
 		return 1;
 	}
 
+	/* parse instruction name */
 	if (parse_instruction_name(&(full_instruction->instruction))) {
 		return 1;
 	}
 
+	/* parse instruction comb */
 	if (parse_instruction_comb(full_instruction)) {
 		return 1;
 	}
 
-	code_index++;
 
+	/* parse instruction operands */
 	switch (full_instruction->instruction->num_opernads) {
 		case 2:
 			if (parse_whitespace_must()) {
@@ -713,15 +856,25 @@ static int parse_instruction(void)
 			break;
 	}
 
+	code_index++;
 	return 0;
 }
 
+/************************************************
+ * NAME: parse_action_line
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * DESCRIPTION: parse an action line
+ * ************************************************/
 static int parse_action_line(void)
 {
+	/* try to parse the label defintion */
 	if (parse_label_definition()) {
 		return 1;
 	}
 
+	/* if a label was defined whitespace must
+	 * be after it's defintion, else whitespace
+	 * can occurr but not must */
 	if (label_defined) {
 		if (parse_whitespace_must()) {
 			return 1;
@@ -730,7 +883,9 @@ static int parse_action_line(void)
 		parse_whitespace();
 	}
 
+	/* check for directive */
 	if (*input_line == '.') {
+		/* skip directive parsing on second pass */
 		if (pass == SECOND_PASS) {
 			return 0;
 		}
@@ -738,6 +893,8 @@ static int parse_action_line(void)
 			return 1;
 		}
 	} else {
+		/* if it's not a directive it must 
+		 * be an instruction */
 		if (parse_instruction()) {
 			return 1;
 		}
@@ -746,20 +903,37 @@ static int parse_action_line(void)
 	return parse_end_of_line();	
 }
 
+/************************************************
+ * NAME: parse_line
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: line - the line to parse  
+ * DESCRIPTION: run the first and second pass on 
+ * 		a given file
+ * ************************************************/
 static int parse_line(char *line)
 {
+	/* zero globals corresponding to a single 
+	 * line parse */
 	label_defined = 0;
 	input_line = input_line_start = line;
-	if (is_comment() || is_empty()) {
-		return 0;
-	}
-	else {
+
+	/* parse a line only if it's not a
+	 * comment and not empty */
+	if (!is_comment() && !is_empty()) {
 		return parse_action_line();
 	}
+	return 0;
 }
 
 /* exported functions */
 
+/************************************************
+ * NAME: parse_file
+ * RETURN VALUE: 0 on success, 1 otherwise
+ * PARAMS: filename - the filename to parse  
+ * DESCRIPTION: run the first and second pass on 
+ * 		a given file
+ * ************************************************/
 int parse_file(char *filename)
 {
 	FILE *fp;
