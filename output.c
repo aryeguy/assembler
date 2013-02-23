@@ -19,7 +19,14 @@ static FILE *externals_output_file;
 static const char *original_filenme;
 static int output_code_index;
 
-unsigned int convert(unsigned int number, int base)
+/************************************************
+ * NAME: convert
+ * PARAMS: number - the number to convert 
+ * RETURN VALUE: converted number
+ * DESCRIPTION: convert a number to base 4 with
+ * 		only 20 bits 
+ ***********************************************/
+unsigned int convert(unsigned int number)
 {
 	unsigned int converted_number = 0;
 	int i = 0;
@@ -27,13 +34,18 @@ unsigned int convert(unsigned int number, int base)
 	number &= 0xfffff; /* use only 20 bits of the number */
 
 	while (number) {
-		converted_number += pow(10, i)*(number % base);
+		converted_number += pow(10, i)*(number % 4);
 		i++;
-		number /= base;
+		number /= 4;
 	}
 	return converted_number;
 }
 
+/************************************************
+ * NAME: output_entry_label
+ * PARAMS: label - the label to output 
+ * DESCRIPTION: output a label to the entry file 
+ ***********************************************/
 static void output_entry_label(label_t *label)
 {
 	/* open file for writing if not opened */
@@ -52,19 +64,30 @@ static void output_entry_label(label_t *label)
 		fprintf(entries_output_file, 
 			"%s\t%010u\n", 
 			label->name, 
-			convert(label->address + START_OFFSET + (label->section == DATA ? code_index : 0), 4));
+			convert(label->address + START_OFFSET + (label->section == DATA ? code_index : 0)));
 	}
 }
 
+/************************************************
+ * NAME: output_code_line
+ * PARAMS: data - the code to output 
+ * 	   linkder_data - the linker data 
+ * DESCRIPTION: output a code line to the ob file 
+ ***********************************************/
 static void output_code_line(int data, linker_data_t linker_data)
 {
 	fprintf(ob_output_file, 
 		"%04u\t%010u\t%c\n", 
-		convert(output_code_index++, 4), 
-		convert(data, 4), 
+		convert(output_code_index++), 
+		convert(data), 
 		linker_data);
 }
 
+/************************************************
+ * NAME: output_external_label_use
+ * PARAMS: label - the label to output 
+ * DESCRIPTION: output a label to the extern file 
+ ***********************************************/
 static void output_external_label_use(label_t *label)
 {
 	/* open file for writing if not opened */
@@ -79,9 +102,15 @@ static void output_external_label_use(label_t *label)
 			return;
 		}
 	}
-	fprintf(externals_output_file, "%s\t%04u\n", label->name, convert(output_code_index, 4));
+	fprintf(externals_output_file, "%s\t%04u\n", label->name, convert(output_code_index));
 }
 
+/************************************************
+ * NAME: output_operand_label
+ * PARAMS: name - the label to output 
+ * DESCRIPTION: output a label to ob file and
+ * 		to extern file if needed
+ ***********************************************/
 static void output_operand_label(char *name)
 {
 	label_t *label = lookup_label(name);
@@ -97,6 +126,12 @@ static void output_operand_label(char *name)
 	}
 }
 
+/************************************************
+ * NAME: output_operand
+ * PARAMS: operand - the operand to output 
+ * DESCRIPTION: output an operand to ob file and
+ * 		to extern file if needed
+ ***********************************************/
 static void output_operand(operand_t *operand)
 {
 	switch (operand->type) {
@@ -125,6 +160,12 @@ static void output_operand(operand_t *operand)
 	}
 }
 
+/************************************************
+ * NAME: encode_address_mode
+ * PARAMS: mode - the mode to mode 
+ * RETURN VALUE: encoded mode
+ * DESCRIPTION: encode an address mode 
+ ***********************************************/
 static int encode_address_mode(address_mode_t mode)
 {
 	switch (mode) {
@@ -141,6 +182,12 @@ static int encode_address_mode(address_mode_t mode)
 	return 0;
 }
 
+/************************************************
+ * NAME: output_instruction
+ * PARAMS: full_instruction - the instruction to 
+ * 			      output 
+ * DESCRIPTION: output an instruction to ob file
+ ***********************************************/
 static void output_instruction(full_instruction_t full_instruction)
 {
 	int assembled_instruction = 0;
@@ -175,6 +222,10 @@ static void output_instruction(full_instruction_t full_instruction)
 	output_code_line(assembled_instruction, ABSOLUTE_LINKAGE);
 }
 
+/************************************************
+ * NAME: output_data
+ * DESCRIPTION: output all data to the ob file
+ ***********************************************/
 static void output_data(void)
 {
 	int i;
@@ -183,11 +234,15 @@ static void output_data(void)
 	{
 		fprintf(ob_output_file,
 			"%04u\t%010u\n",
-			convert(START_OFFSET + code_index + i, 4),
-		       	convert(data_section[i], 4));
+			convert(START_OFFSET + code_index + i),
+		       	convert(data_section[i]));
 	}
 }
 
+/************************************************
+ * NAME: output_code
+ * DESCRIPTION: output all code to the ob file
+ ***********************************************/
 static void output_code(void)
 {
 	int i;
@@ -210,14 +265,27 @@ static void output_code(void)
 	}
 }
 
+/************************************************
+ * NAME: output_header
+ * DESCRIPTION: output ob file header
+ ***********************************************/
 static void output_header(void)
 {
 	fprintf(ob_output_file, 
 		"%u\t%u\n",
-	       	convert(code_index, 4),
-	       	convert(data_index, 4));
+	       	convert(code_index),
+	       	convert(data_index));
 }
 
+/************************************************
+ * NAME: output
+ * PARAMS: source_filename - the filename to 
+ * 			     output 
+ * RETURN VALUE: 1 on error, 0 on success
+ * DESCRIPTION:  assemble instructions and output
+ * 		 all parsed data to ob ext and 
+ * 		 ent files 
+ ***********************************************/
 int output(const char *source_filename)
 {
 	char obj_filename[MAX_FILENAME_LENGTH];

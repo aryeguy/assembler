@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h> /* for fprintf */
+#include <string.h> /* for strncmp */
 
 #include "table.h"
 #include "consts.h"
@@ -11,11 +11,23 @@
 static label_t labels[MAX_LABELS];
 static int free_label_index = 0;
 
+/************************************************
+ * NAME: init_labels
+ * DESCRIPTION: init the labels table 
+ ***********************************************/
 void init_labels(void)
 {
 	free_label_index = 0;
 }
 
+/************************************************
+ * NAME: validate_labels
+ * RETURN VALUE: 1 on error, 0 on success
+ * DESCRIPTION: validate that all entry and 
+ * 		regular labels are defined and 
+ * 		that all extern labels are not 
+ * 		defined
+ ***********************************************/
 int validate_labels(void)
 {
 	int i;
@@ -43,6 +55,12 @@ int validate_labels(void)
 	return failed;
 }
 
+/************************************************
+ * NAME: loop_labels
+ * PARAMS: fun - the function to invoke
+ * DESCRIPTION: inovke a given function on all 
+ * 		labels 
+ ***********************************************/
 void loop_labels(void (*fun)(label_t *))
 {
 	int i;
@@ -53,8 +71,18 @@ void loop_labels(void (*fun)(label_t *))
 	}
 }
 
+/************************************************
+ * NAME: install_label
+ * PARAMS: name - the name of the label to be 
+ * 		  installed
+ * 	   label - a pointer to the installed
+ * 	           label
+ * RETURN VALUE: 1 on error, 0 on success
+ * DESCRIPTION: install a given label
+ ***********************************************/
 int install_label(char *name, label_t **label)
 {
+	/* check that there is a free space for the label */
 	if (free_label_index == MAX_LABELS) {
 		parse_error("too much labels defined");
 		return 1;
@@ -72,6 +100,14 @@ int install_label(char *name, label_t **label)
 	return 0;
 }
 
+/************************************************
+ * NAME: install_label
+ * PARAMS: name - the name of the label to be 
+ * 		  looked up
+ * RETURN VALUE: 1 on error, 0 on success
+ * DESCRIPTION: lookup for a label with a given
+ * 		name
+ ***********************************************/
 label_t* lookup_label(char *name)
 {
 	int i;

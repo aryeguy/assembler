@@ -128,6 +128,7 @@ void parse_error(char *gripe)
 /************************************************
  * NAME: parse_string
  * PARAMS: s - the string to parse 
+ * RETURN VALUE: 1 on error, 0 on success
  * DESCRIPTION: parse a string 
  ***********************************************/
 static int parse_string(char *s)
