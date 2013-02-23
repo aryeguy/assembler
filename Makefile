@@ -17,4 +17,4 @@ clean:
 
 .PHONY: test
 test: $(EXECUTABLE)
-	./as ps ps2 ps3
+	./as ps ps2 ps3 ps4
