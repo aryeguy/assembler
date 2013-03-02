@@ -20,4 +20,4 @@ MAIN:	lea/0	STR{LEN},STRADD
 	inc/0	K
 	jsr/0	REVERSE
 	jsr/0	PRTSTR
-	stp/0
+	stop/0
