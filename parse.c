@@ -121,7 +121,7 @@ void parse_error(char *gripe)
 	fprintf(stderr, "%s:%u:%u: error: %s\n",
 			input_filename,
 			input_linenumber,
-			input_line - input_line_start,
+			(unsigned int)(input_line - input_line_start),
 		       	gripe);
 }
 

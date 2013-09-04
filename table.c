@@ -113,7 +113,7 @@ label_t* lookup_label(char *name)
 	int i;
 	
 	for (i = 0; i < free_label_index; i++) {
-		if (strncmp(labels[i].name, name, sizeof(name)) == 0) {
+		if (strncmp(labels[i].name, name, strlen(name)) == 0) {
 			return &labels[i];
 		}
 	}

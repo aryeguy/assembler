@@ -1,3 +1,4 @@
+CC=clang
 CFLAGS = -pedantic -ansi -Wall -Werror -g
 LDLIBS = -lm
 
