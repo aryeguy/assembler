@@ -151,7 +151,7 @@ static int parse_string(char *s)
  * DESCRIPTION: check if a charcater is a blank 
  *              character 
  ***********************************************/
-static int isblank(char c)
+static int isblank(int c)
 {
 	return c == ' ' || c == '\t';
 }
